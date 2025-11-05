@@ -5,9 +5,11 @@ const http = require('http'); // 1. 'http' (एचटीटीपी) 'इम्
 const { Server } = require("socket.io"); // 2. 'Socket.io' (सॉकेट.आईओ) (Socket.io (सॉकेट.आईओ)) 'इम्पोर्ट' (import) (आयात) करें
 const Message = require('./models/Message'); // 3. 'Message' (मैसेज) (संदेश) 'मॉडल' (model) (model) 'इम्पोर्ट' (import) (आयात) करें
 
-const app = express();
-const server = http.createServer(app); // 4. 'Express' (एक्सप्रेस) (Express (एक्सप्रेस)) 'को' (to) 'http' (एचटीटीपी) 'सर्वर' (server) (सर्वर) 'में' (in) 'रैप' (wrap) (लपेटें) 'करें' (do)
-
+// (CORS (कॉर्स) (CORS (कॉर्स)) 'और' (and) 'JSON' (जेएसओएन) (JSON (जेएसओएन)))
+app.use(cors()); // (2. 'इस' (This) 'लाइन' (line) (पंक्ति) 'को' (to) 'यहाँ' (here) 'ऐड' (add) (जोड़) 'करें' (do)! 'यह' (It) 'सभी' (all) 'को' (to) 'अलाउ' (allow) (अनुमति) 'करेगा' (will do))
+app.use(express.json());
+const app = express();git add .
+const server = http.createServer(app);
 // 5. 'Socket.io' (सॉकेट.आईओ) (Socket.io (सॉकेट.आईओ)) 'सर्वर' (server) (सर्वर) 'को' (to) 'कॉन्फ़िगर' (configure) (कॉन्फ़िगर) 'करें' (do)
 const io = new Server(server, {
     cors: {
