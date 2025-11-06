@@ -7,7 +7,7 @@ const User = require('../models/User');
 const sendEmail = require('../config/email'); // ('Email' (ईमेल) (ईमेल) 'हेल्पर' (helper) (helper) 'इम्पोर्ट' (import) (आयात) करें)
 
 const JWT_SECRET = 'your_secret_key_123';
-const CLIENT_URL = 'https://collegeconnect-backend-mrkz.onrender.com'; // ('फ्रंटएंड' (Frontend) 'का' (of) 'URL' (यूआरएल) (URL (यूआरएल)))
+const CLIENT_URL = 'https://collegeconnect-frontend.vercel.app'; // ('फ्रंटएंड' (Frontend) 'का' (of) 'URL' (यूआरएल) (URL (यूआरएल)))
 
 // (Register (रजिस्टर) 'फंक्शन' (function) (Function (फंक्शन)) (वही है))
 router.post('/register', async (req, res) => {
