@@ -7,7 +7,7 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY;
 // --- (अपडेट (Update) खत्म) ---
 
 const transporter = nodemailer.createTransport(new BrevoTransport({
-    apiKey: BREVO_API_KEY
+    ApiKey: BREVO_API_KEY
 }));
 
 // (यह 'आपका' (your) 'Brevo' (ब्रेवो) (Brevo (ब्रेवो)) 'पर' (on) 'Verified' (वेरिफाइड) (सत्यापित) 'Sender' (सेंडर) (प्रेषक) 'ईमेल' (email) (ईमेल) 'होना' (should be) 'चाहिए' (should))
