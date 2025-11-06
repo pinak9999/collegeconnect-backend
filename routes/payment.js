@@ -50,20 +50,7 @@ router.post('/verify', auth, async (req, res) => {
         });
         await newBooking.save();
         
-        // --- (यह रहा 'नया' (New) 'फिक्स' (Fix) (ठीक): 'Email' (ईमेल) (ईमेल) 'को' (to) 'डिसेबल' (disable) (निष्क्रिय) 'करें' (Do)) ---
-        /*
-        try {
-            const student = await User.findById(req.user.id);
-            const seniorUser = await User.findById(senior);
-            
-            await sendEmail(student.email, 'Your Booking is Confirmed!', ...);
-            await sendEmail(seniorUser.email, 'NEW BOOKING RECEIVED!', ...);
-
-        } catch (emailErr) {
-            console.error("Email sending error, but booking is successful:", emailErr);
-        }
-        */
-        // --- (अपडेट (Update) खत्म) ---
+      
         
         res.json({ msg: 'Booking Confirmed!', booking: newBooking });
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
