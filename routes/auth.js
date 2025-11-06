@@ -68,9 +68,15 @@ router.post('/forgot-password', async (req, res) => {
         const resetLink = `${CLIENT_URL}/reset-password/${token}`;
 
         // ('Email' (ईमेल) (ईमेल) 'को' (to) 'वापस' (Back) 'ON' (चालू) 'कर' (Done) 'दिया' (did) 'गया' (was) 'है' (है)!)
-      console.log("--- (EMAIL (ईमेल) (ईमेल) 'सिस्टम' (system) (प्रणाली) 'डिसेबल' (disable) (निष्क्रिय) 'है' (is)) ---");
-        console.log(`--- PASSWORD RESET LINK (पासवर्ड रीसेट लिंक): ${resetLink} ---`);
-        console.log("-----------------------------------------");
+   // --- (यह रहा 'नया' (New) 'फिक्स' (Fix) (ठीक): 'Email' (ईमेल) (ईमेल) 'को' (to) 'वापस' (Back) 'ON' (चालू) 'करें' (Do)!) ---
+        await sendEmail(
+            user.email,
+            'CollegeConnect Password Reset Request',
+            `<h3>Password Reset</h3>
+             <p>You requested a password reset. Please click the link below:</p>
+             <a href="${resetLink}" target="_blank">Reset Password</a>
+             <p>This link will expire in 1 hour.</p>`
+        );
         
         // ('मैसेज' (Message) (संदेश) 'को' (to) 'वापस' (back) 'बदल' (Changed) 'दिया' (did) 'गया' (was) 'है' (है))
         res.json({ msg: 'Password reset email sent. Please check your inbox.' });
