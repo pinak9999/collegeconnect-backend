@@ -1,26 +1,25 @@
 const nodemailer = require('nodemailer');
+const BrevoTransport = require('nodemailer-brevo-transport');
 
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD
-  }
-});
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+
+const transporter = nodemailer.createTransport(new BrevoTransport({
+  apiKey: BREVO_API_KEY
+}));
 
 const sendEmail = async (to, subject, html) => {
   try {
     const mailOptions = {
-      from: `"College Connect" <${process.env.GMAIL_USER}>`,
+      from: `"College Connect" <davepinak0@gmail.com>`, // Brevo verified sender
       to,
       subject,
       html,
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Gmail SMTP Email sent successfully to ${to}`);
+    console.log(`✅ Brevo Email sent successfully to ${to}`, info);
   } catch (error) {
-    console.error('❌ Gmail SMTP Email Error:', error.message);
+    console.error('❌ Brevo Email Error:', error.message);
     throw new Error('Email sending failed.');
   }
 };
