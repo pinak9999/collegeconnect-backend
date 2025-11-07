@@ -4,12 +4,15 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto'); 
 const User = require('../models/User'); 
-const sendEmail = require('../config/email'); // ('Email' (ईमेल) (ईमेल) 'हेल्पर' (helper) (helper) 'इम्पोर्ट' (import) (आयात) करें)
+const sendEmail = require('../config/email'); 
 
-const JWT_SECRET = 'your_secret_key_123';
-const CLIENT_URL = 'https://collegeconnect-frontend.vercel.app'; // ('फ्रंटएंड' (Frontend) 'का' (of) 'URL' (यूआरएल) (URL (यूआरएल)))
+// --- (1. 'यह' (This) 'सही' (Correct) 'तरीका' (Way) 'है' (is)) ---
+// ('यह' (It) 'Render' (रेंडर) (Render (रेंडर)) 'के' (of) 'Environment Variables' (वैरिएबल्स) (चर) 'से' (from) 'Key' (की) (चाबी) 'उठाएगा' (will pick up))
+const JWT_SECRET = process.env.JWT_SECRET;
+const CLIENT_URL = process.env.CLIENT_URL;
+// --- (अपडेट (Update) खत्म) ---
 
-// (Register (रजिस्टर) 'फंक्शन' (function) (Function (फंक्शन)) (वही है))
+// (Register (रजिस्टर) 'फंक्शन' (function) (Function (फंक्शन)) (जैसा (As) 'पहले' (before) 'था' (was)))
 router.post('/register', async (req, res) => {
     const { name, email, password, mobileNumber } = req.body;
     try {
@@ -26,7 +29,7 @@ router.post('/register', async (req, res) => {
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
-// (Login (लॉगिन) 'फंक्शन' (function) (Function (फंक्शन)) (वही है))
+// (Login (लॉगिन) 'फंक्शन' (function) (Function (फंक्शन)) (जैसा (As) 'पहले' (before) 'था' (was)))
 router.post('/login', async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -49,67 +52,62 @@ router.post('/login', async (req, res) => {
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
-// --- (1. 'यह' (This) 'रहा' (is) 100% 'Accurate' (सही) 'फिक्स' (Fix) (ठीक)) ---
-/**
- * @route   POST /api/auth/forgot-password
- * @desc    Generate reset token and email it
- */
+// --- (2. 'यह' (This) 'रहा' (is) 'आपका' (your) 'नया' (new) '`Forgot/Reset`' (फॉरगॉट/रीसेट) (Forgot/Reset (भूल गए/रीसेट)) '`Password`' (पासवर्ड) (Password (पासवर्ड)) '`कोड`' (code) (Code (कोड))) ---
+// 🧩 Forgot Password
 router.post('/forgot-password', async (req, res) => {
-    const { email } = req.body;
-    try {
-        const user = await User.findOne({ email });
-        if (!user) return res.status(404).json({ msg: 'User with this email not found.' });
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ msg: 'User with this email not found.' });
 
-        const token = crypto.randomBytes(20).toString('hex');
-        user.resetPasswordToken = token;
-        user.resetPasswordExpires = Date.now() + 3600000; // (1 'घंटा' (hour) (घंटा))
-        await user.save();
+    const token = crypto.randomBytes(20).toString('hex');
+    user.resetPasswordToken = token;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    await user.save();
 
-        const resetLink = `${CLIENT_URL}/reset-password/${token}`;
+    const resetLink = `${CLIENT_URL}/reset-password/${token}`;
 
-        // ('Email' (ईमेल) (ईमेल) 'को' (to) 'वापस' (Back) 'ON' (चालू) 'कर' (Done) 'दिया' (did) 'गया' (was) 'है' (है)!)
-   // --- (यह रहा 'नया' (New) 'फिक्स' (Fix) (ठीक): 'Email' (ईमेल) (ईमेल) 'को' (to) 'वापस' (Back) 'ON' (चालू) 'करें' (Do)!) ---
-        await sendEmail(
-            user.email,
-            'CollegeConnect Password Reset Request',
-            `<h3>Password Reset</h3>
-             <p>You requested a password reset. Please click the link below:</p>
-             <a href="${resetLink}" target="_blank">Reset Password</a>
-             <p>This link will expire in 1 hour.</p>`
-        );
-        
-        // ('मैसेज' (Message) (संदेश) 'को' (to) 'वापस' (back) 'बदल' (Changed) 'दिया' (did) 'गया' (was) 'है' (है))
-        res.json({ msg: 'Password reset email sent. Please check your inbox.' });
-    } catch (err) { 
-        console.error(err.message); 
-        // (अगर 'sendEmail' (सेंडईमेल) (sendEmail) 'फेल' (fail) (विफल) 'होता' (is) 'है' (है), 'तो' (then) 'यह' (this) 'एरर' (error) (त्रुटि) 'दें' (give))
-        res.status(500).send('Server Error (Email Failed)'); 
-    }
+    await sendEmail(
+      user.email,
+      'CollegeConnect Password Reset Request',
+      `
+        <h2>Password Reset</h2>
+        <p>Click below to reset your password:</p>
+        <a href="${resetLink}" target="_blank" style="background:#007BFF;color:#fff;padding:10px 15px;text-decoration:none;border-radius:5px;">Reset Password</a>
+        <p>This link will expire in 1 hour.</p>
+      `
+    );
+
+    res.json({ msg: 'Password reset email sent successfully. Please check your inbox.' });
+  } catch (err) {
+    console.error('❌ Forgot Password Error:', err);
+    res.status(500).json({ msg: 'Server Error (Email Failed)' });
+  }
+});
+
+// 🔒 Reset Password
+router.post('/reset-password/:token', async (req, res) => {
+  const { password } = req.body;
+  try {
+    const user = await User.findOne({
+      resetPasswordToken: req.params.token,
+      resetPasswordExpires: { $gt: Date.now() }
+    });
+
+    if (!user) return res.status(400).json({ msg: 'Password reset token is invalid or expired.' });
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(password, salt);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.json({ msg: 'Password reset successful! You can now login.' });
+  } catch (err) {
+    console.error('❌ Reset Password Error:', err);
+    res.status(500).json({ msg: 'Server Error' });
+  }
 });
 // --- (अपडेट (Update) खत्म) ---
-
-/**
- * @route   POST /api/auth/reset-password/:token
- * @desc    Reset the password
- */
-router.post('/reset-password/:token', async (req, res) => {
-    const { password } = req.body;
-    try {
-        const user = await User.findOne({
-            resetPasswordToken: req.params.token,
-            resetPasswordExpires: { $gt: Date.now() } 
-        });
-
-        if (!user) return res.status(400).json({ msg: 'Password reset token is invalid or has expired.' });
-
-        const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(password, salt);
-        user.resetPasswordToken = undefined;
-        user.resetPasswordExpires = undefined;
-        await user.save();
-
-        res.json({ msg: 'Password reset successful! You can now login.' });
-    } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
-});
 
 module.exports = router;
