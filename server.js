@@ -2,25 +2,26 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+
 const app = express();
 
 app.use(express.json());
 app.use(cors());
 
-// ✅ MongoDB Connection (Atlas or Local fallback)
+// ✅ MongoDB Connection (Atlas या Local)
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/collegeconnect';
 
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
-  useUnifiedTopology: true
+  useUnifiedTopology: true,
 })
   .then(() => console.log('✅ MongoDB Connected Successfully'))
-  .catch(err => console.error('❌ MongoDB Connection Error:', err.message));
+  .catch((err) => console.error('❌ MongoDB Connection Error:', err.message));
 
-// ✅ Auth Route
+// ✅ Routes
 app.use('/api/auth', require('./routes/auth'));
 
-// ✅ DEBUG TOKEN ROUTE (Add this below your routes)
+// ✅ DEBUG TOKEN ROUTE (add this below)
 app.get('/api/debug-token/:token', async (req, res) => {
   try {
     const User = require('./models/User');
@@ -34,7 +35,7 @@ app.get('/api/debug-token/:token', async (req, res) => {
       msg: '✅ Token found in database',
       email: user.email,
       expiresAt: user.resetPasswordExpires,
-      isExpired: user.resetPasswordExpires < Date.now()
+      isExpired: user.resetPasswordExpires < Date.now(),
     });
   } catch (err) {
     console.error('❌ Debug route error:', err.message);
@@ -42,11 +43,11 @@ app.get('/api/debug-token/:token', async (req, res) => {
   }
 });
 
-// ✅ Default Route (optional)
+// ✅ Root route (optional)
 app.get('/', (req, res) => {
-  res.send('🚀 CollegeConnect Backend API Running Successfully');
+  res.send('🚀 CollegeConnect Backend is Live!');
 });
 
-// ✅ Start Server
+// ✅ Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
