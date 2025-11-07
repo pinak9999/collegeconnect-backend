@@ -2,35 +2,49 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
-
 const app = express();
+
 app.use(express.json());
 app.use(cors());
 
-// ✅ MongoDB Connection (Render + Local दोनों पर काम करेगा)
+// ✅ MongoDB Connection (Atlas or Local fallback)
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/collegeconnect';
 
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
-.then(() => console.log('✅ MongoDB Connected Successfully'))
-.catch(err => console.error('❌ MongoDB Connection Error:', err.message));
+  .then(() => console.log('✅ MongoDB Connected Successfully'))
+  .catch(err => console.error('❌ MongoDB Connection Error:', err.message));
 
-// ✅ Routes
+// ✅ Auth Route
 app.use('/api/auth', require('./routes/auth'));
 
-// ✅ Debug Route (Token Checker)
+// ✅ DEBUG TOKEN ROUTE (Add this below your routes)
 app.get('/api/debug-token/:token', async (req, res) => {
-  const User = require('./models/User');
-  const user = await User.findOne({ resetPasswordToken: req.params.token });
-  if (!user) return res.status(404).json({ msg: '❌ Token not found in DB' });
-  res.json({
-    msg: '✅ Token found in database',
-    email: user.email,
-    expiresAt: user.resetPasswordExpires,
-    isExpired: user.resetPasswordExpires < Date.now()
-  });
+  try {
+    const User = require('./models/User');
+    const user = await User.findOne({ resetPasswordToken: req.params.token });
+
+    if (!user) {
+      return res.status(404).json({ msg: '❌ Token not found in database' });
+    }
+
+    res.json({
+      msg: '✅ Token found in database',
+      email: user.email,
+      expiresAt: user.resetPasswordExpires,
+      isExpired: user.resetPasswordExpires < Date.now()
+    });
+  } catch (err) {
+    console.error('❌ Debug route error:', err.message);
+    res.status(500).json({ msg: 'Server Error while checking token' });
+  }
+});
+
+// ✅ Default Route (optional)
+app.get('/', (req, res) => {
+  res.send('🚀 CollegeConnect Backend API Running Successfully');
 });
 
 // ✅ Start Server

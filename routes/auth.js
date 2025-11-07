@@ -92,29 +92,23 @@ router.post('/forgot-password', async (req, res) => {
     console.log(`✅ Reset Link generated: ${resetLink}`);
 
     // Send Email
-    await sendEmail(
-      user.email,
-      'CollegeConnect - Password Reset Request',
-      `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2>Reset Your Password</h2>
-        <p>Hello ${user.name || 'there'},</p>
-        <p>We received a request to reset your CollegeConnect password.</p>
-        <p>Please click the button below to set a new password:</p>
-        <p>
-          <a href="${resetLink}" target="_blank" 
-             style="display:inline-block;padding:10px 20px;background-color:#007BFF;color:white;
-             text-decoration:none;border-radius:5px;">Reset Password</a>
-        </p>
-        <p>Or, you can also copy and paste this link into your browser:</p>
-        <p style="word-break: break-all; color:#007BFF;">${resetLink}</p>
-        <p>This link will expire in <strong>24 hours</strong>.</p>
-        <p>If you didn’t request this, you can safely ignore this email.</p>
-        <br/>
-        <p>Regards,<br/>CollegeConnect Team</p>
-      </div>
-      `
-    );
+ await sendEmail(
+  user.email,
+  'CollegeConnect - Password Reset',
+  `
+    <div style="font-family: Arial; line-height: 1.5;">
+      <h2>Password Reset Request</h2>
+      <p>Click below to reset your password:</p>
+      <a href="${resetLink}" 
+         style="display:inline-block; background:#007BFF; color:#fff; padding:10px 15px;
+         text-decoration:none; border-radius:5px; font-weight:bold;">Reset Password</a>
+      <p>Or copy this link manually:</p>
+      <p style="word-break: break-all; color:#007BFF;">${resetLink}</p>
+      <p>This link expires in <b>24 hours</b>.</p>
+    </div>
+  `
+);
+
 
     res.json({ msg: '✅ Password reset email sent successfully! Please check your inbox.' });
   } catch (err) {
