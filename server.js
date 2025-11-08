@@ -9,7 +9,7 @@ app.use(express.json());
 app.use(cors());
 
 // ✅ MongoDB Connection (Atlas या Local)
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/collegeconnect';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://davepinak0_db_user:Pinak12345@cluster0.43eqttc.mongodb.net/myFirstDatabase?retryWrites=true&w=majority';
 
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
