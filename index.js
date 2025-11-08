@@ -4,7 +4,23 @@ const cors = require('cors');
 const http = require('http'); 
 const { Server } = require("socket.io"); 
 const Message = require('./models/Message'); 
+// index.js (या App.js)
+import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(
+  <React.StrictMode>
+    {/* .env.local फ़ाइल में अपना Google Client ID स्टोर करें 
+      VITE_GOOGLE_CLIENT_ID="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+    */}
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+      <App />
+    </GoogleOAuthProvider>
+  </React.StrictMode>
+);
 // 1. 'App' (ऐप) (App) 'और' (and) 'Server' (सर्वर) (Server) 'सिर्फ' (only) 'एक' (one) 'बार' (time) 'बनाएँ' (Create)
 const app = express();
 const server = http.createServer(app);
