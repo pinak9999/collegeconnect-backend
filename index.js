@@ -46,18 +46,18 @@ app.use('/api/chat', require('./routes/chat'));
 // --- End API Routes ---
 
 io.on('connection', (socket) => {
-    // ❗❗ [FINAL_TEST] - यह मैसेज (message) दिखना ही चाहिए!
-    console.log(`[FINAL_TEST] A user connected: ${socket.id}`);
+    // ❗❗ [THE REAL FIX] - यह मैसेज (message) दिखना ही चाहिए!
+    console.log(`[THE REAL FIX] A user connected: ${socket.id}`);
 
     // --- 1. चैट के लिए रूम जॉइन करना ---
     socket.on('join_room', (bookingId) => {
         socket.join(bookingId);
-        console.log(`[FINAL_TEST] User ${socket.id} joined CHAT room: ${bookingId}`);
+        console.log(`[THE REAL FIX] User ${socket.id} joined CHAT room: ${bookingId}`);
     });
 
     // --- 2. चैट मैसेज भेजना ---
     socket.on('send_message', async (data) => {
-        console.log(`[FINAL_TEST] User ${socket.id} sent a message.`);
+        console.log(`[THE REAL FIX] User ${socket.id} sent a message.`);
         try {
             const newMessage = new Message({
                 booking: data.booking, sender: data.sender,
@@ -67,39 +67,39 @@ io.on('connection', (socket) => {
             const populatedMessage = await Message.findById(newMessage._id).populate('sender', 'name');
             io.to(data.booking).emit('receive_message', populatedMessage);
         } catch (err) {
-            console.error('[FINAL_TEST] Socket.io save message error:', err);
+            console.error('[THE REAL FIX] Socket.io save message error:', err);
         }
     });
 
-    // --- 3. ❗❗ [FINAL_TEST] वीडियो कॉल लॉजिक ❗❗ ---
+    // --- 3. ❗❗ [THE REAL FIX] वीडियो कॉल लॉजिक (100% सही) ❗❗ ---
     socket.on("join_video_room", (data) => {
         // data = { room: "...", peerId: "...", name: "..." }
         
-        console.log(`[FINAL_TEST] User ${socket.id} ( ${data.name} ) trying to join VIDEO room ${data.room}`);
+        console.log(`[THE REAL FIX] User ${socket.id} ( ${data.name} ) trying to join VIDEO room ${data.room}`);
         
         // 1. यूज़र को तुरंत रूम में जॉइन कराओ
         socket.join(data.room);
-        console.log(`[FINAL_TEST] User ${socket.id} successfully joined VIDEO room ${data.room}`);
+        console.log(`[THE REAL FIX] User ${socket.id} successfully joined VIDEO room ${data.room}`);
         
         // 2. अब, रूम में बाकी लोगों को बताओ (यानी सिर्फ दूसरे यूज़र को)
-        // हम 'io.to' का इस्तेमाल कर रहे हैं, जो 'socket.to' से ज़्यादा 'reliable' (भरोसेमंद) है
-        io.to(data.room).emit('other_user_for_video', {
+        // (socket.to(room) का मतलब है 'रूम में सबको भेजो, मुझे छोड़कर')
+        socket.to(data.room).emit('other_user_for_video', {
             peerId: data.peerId,
             name: data.name
         });
-        console.log(`[FINAL_TEST] Emitting 'other_user_for_video' to room ${data.room}`);
+        console.log(`[THE REAL FIX] Emitting 'other_user_for_video' to room ${data.room}`);
     });
 
 
     // --- 4. डिस्कनेक्ट ---
     socket.on('disconnect', () => {
-        console.log(`[FINAL_TEST] User disconnected: ${socket.id}`);
+        console.log(`[THE REAL FIX] User disconnected: ${socket.id}`);
     });
 });
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
     console.log(`🚀 Server started on port ${PORT} (with Socket.io)`);
-    // ❗❗ [FINAL_TEST] - यह मैसेज (message) दिखना ही चाहिए!
-    console.log(`[FINAL_TEST] Server is RUNNING NEW CODE.`);
+    // ❗❗ [THE REAL FIX] - यह मैसेज (message) दिखना ही चाहिए!
+    console.log(`[THE REAL FIX] Server is RUNNING NEW CODE.`);
 });
