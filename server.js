@@ -1,173 +1,100 @@
 // ========================================
-// ✅ CollegeConnect Backend (Full Working)
-// Chat + Video Call + Mongo + Socket.io
+// ✅ CollegeConnect Backend (Chat + Video)
 // ========================================
-
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const http = require('http');
-const { Server } = require("socket.io");
-const Message = require('./models/Message');
+const { Server } = require('socket.io');
 
-// ----------------------------------------
-// 🔹 Express & HTTP Server setup
-// ----------------------------------------
+// (optional) अगर चैट use करते हो तो अपना model import करो
+// const Message = require('./models/Message');
+
 const app = express();
 const server = http.createServer(app);
 
-// ----------------------------------------
-// 🔹 Allowed Frontend URLs (CORS)
-// ----------------------------------------
+// ------- CORS -------
 const FRONTEND_URL = process.env.CLIENT_URL || 'https://collegeconnect-frontend.vercel.app';
-
 app.use(cors({
-  origin: [FRONTEND_URL, "http://localhost:3000", "http://localhost:5173"],
+  origin: [FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173'],
   credentials: true
 }));
-
 app.use(express.json());
 
-// ----------------------------------------
-// 🔹 MongoDB Connection
-// ----------------------------------------
+// ------- Mongo (optional) -------
 const MONGO_URI = process.env.MONGO_URI;
-
-if (!MONGO_URI) {
-  console.error('❌ FATAL ERROR: MONGO_URI not defined in environment variables!');
-  process.exit(1);
+if (MONGO_URI) {
+  mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
+    .then(() => console.log('✅ MongoDB Connected'))
+    .catch(err => console.error('❌ MongoDB Error:', err.message));
 }
 
-mongoose.connect(MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-  .then(() => console.log('✅ MongoDB Connected Successfully'))
-  .catch((err) => console.error('❌ MongoDB Connection Error:', err.message));
+// ------- Routes (optional) -------
+// app.use('/api/auth', require('./routes/auth'));
+// ... आपकी बाकी APIs
 
-// ----------------------------------------
-// 🔹 Socket.io Setup
-// ----------------------------------------
+app.get('/', (_req, res) => res.send('🚀 Backend Live – Socket.io Ready'));
+
+// ------- Socket.io -------
 const io = new Server(server, {
   cors: {
-    origin: [FRONTEND_URL, "http://localhost:3000", "http://localhost:5173"],
-    methods: ["GET", "POST"],
+    origin: [FRONTEND_URL, 'http://localhost:3000', 'http://localhost:5173'],
+    methods: ['GET', 'POST'],
     credentials: true
   }
 });
 
-// ----------------------------------------
-// 🔹 API Routes (Existing)
-// ----------------------------------------
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/users', require('./routes/users'));
-app.use('/api/profile', require('./routes/profile'));
-app.use('/api/payment', require('./routes/payment'));
-app.use('/api/bookings', require('./routes/bookings'));
-app.use('/api/ratings', require('./routes/ratings'));
-app.use('/api/disputes', require('./routes/disputes'));
-app.use('/api/payouts', require('./routes/payouts'));
-app.use('/api/settings', require('./routes/settings'));
-app.use('/api/tags', require('./routes/tags'));
-app.use('/api/colleges', require('./routes/colleges'));
-app.use('/api/disputereasons', require('./routes/disputereasons'));
-app.use('/api/chat', require('./routes/chat'));
+/**
+ * कमरे में कौन-कौन है देखने के लिए एक छोटा helper
+ */
+function listPeersInRoom(io, roomId) {
+  const ids = [];
+  const set = io.sockets.adapter.rooms.get(roomId);
+  if (!set) return ids;
+  set.forEach((sid) => {
+    const s = io.sockets.sockets.get(sid);
+    if (s?.peerId) ids.push({ peerId: s.peerId, name: s.userName || 'Peer' });
+  });
+  return ids;
+}
 
-// ----------------------------------------
-// 🔹 Root route
-// ----------------------------------------
-app.get('/', (req, res) => {
-  res.send('🚀 CollegeConnect Backend is Live (Full Version)');
-});
-
-// ----------------------------------------
-// 🔹 SOCKET.IO MAIN LOGIC
-// ----------------------------------------
 io.on('connection', (socket) => {
-  console.log(`🟢 A user connected: ${socket.id}`);
+  console.log(`🟢 Connected: ${socket.id}`);
 
-  // ============================
-  // 🟢 CHAT ROOM LOGIC
-  // ============================
-  socket.on('join_room', (bookingId) => {
-    socket.join(bookingId);
-    console.log(`💬 User ${socket.id} joined chat room: ${bookingId}`);
-  });
-
-  socket.on('send_message', async (data) => {
-    try {
-      const newMessage = new Message({
-        booking: data.booking,
-        sender: data.sender,
-        receiver: data.receiver,
-        text: data.text
-      });
-
-      await newMessage.save();
-      const populatedMessage = await Message.findById(newMessage._id).populate('sender', 'name');
-      io.to(data.booking).emit('receive_message', populatedMessage);
-
-      console.log(`💌 Message sent in room ${data.booking}`);
-    } catch (err) {
-      console.error('❌ Socket.io save message error:', err);
-    }
-  });
-
-  // ============================
-  // 🎥 VIDEO CALL LOGIC
-  // ============================
-  socket.on("join_video_room", (data) => {
-    // data = { room: "...", peerId: "...", name: "..." }
-    const { room, peerId, name } = data || {};
+  // 🎥 Video: join + bi-directional discovery
+  socket.on('join_video_room', (data = {}) => {
+    const { room, peerId, name } = data;
     if (!room || !peerId) return;
 
-    // ✅ Step 1: Join Room
     socket.join(room);
     socket.peerId = peerId;
-    socket.userName = name || "Anonymous";
+    socket.userName = name || 'User';
 
-    console.log(`🎥 [Video] ${socket.userName} joined room ${room} with Peer ID ${peerId}`);
+    console.log(`🎥 ${socket.userName} joined ${room} as ${peerId}`);
 
-    // ✅ Step 2: Notify others that new user joined
-    socket.to(room).emit("other_user_for_video", {
-      peerId: socket.peerId,
-      name: socket.userName,
+    // 1) बाकी सभी को बताओ कि मैं आ गया
+    socket.to(room).emit('other_user_for_video', { peerId, name: socket.userName });
+
+    // 2) मुझे बताओ कि पहले से कौन-कौन है
+    const others = listPeersInRoom(io, room).filter(p => p.peerId !== peerId);
+    others.forEach((p) => {
+      socket.emit('other_user_for_video', { peerId: p.peerId, name: p.name });
     });
-
-    // ✅ Step 3: Tell new user who is already in the room
-    const clients = io.sockets.adapter.rooms.get(room);
-    if (clients) {
-      clients.forEach((clientId) => {
-        if (clientId !== socket.id) {
-          const s = io.sockets.sockets.get(clientId);
-          if (s?.peerId) {
-            socket.emit("other_user_for_video", {
-              peerId: s.peerId,
-              name: s.userName || "Peer",
-            });
-          }
-        }
-      });
-    }
   });
 
-  // ✅ Step 4: When a user disconnects
-  socket.on("disconnect", () => {
-    console.log(`🔴 User disconnected: ${socket.id}`);
+  // (optional) चैट इत्यादि आपके हिसाब से…
+
+  socket.on('disconnect', () => {
+    // हर उस room में announce करो जहाँ यह socket था
     for (const roomId of socket.rooms) {
       if (roomId !== socket.id) {
-        socket.to(roomId).emit("peer_left", { peerId: socket.peerId });
+        socket.to(roomId).emit('peer_left', { peerId: socket.peerId });
       }
     }
+    console.log(`🔴 Disconnected: ${socket.id}`);
   });
 });
 
-// ----------------------------------------
-// 🔹 Server Start
-// ----------------------------------------
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT} with Socket.io`);
-  console.log(`✅ Ready for Chat + Video Calls`);
-});
+server.listen(PORT, () => console.log(`🚀 Server on ${PORT}`));
