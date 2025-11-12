@@ -79,6 +79,11 @@ io.on('connection', (socket) => {
                 booking: data.booking, sender: data.sender,
                 receiver: data.receiver, text: data.text
             });
+             socket.on("i_am_here_for_video", (data) => {
+    console.log(`User ${socket.id} is ready for video in room ${data.room}`);
+    // उस यूज़र को छोड़कर, रूम में बाकी सबको उसकी Peer ID भेजें
+    socket.to(data.room).emit("other_user_for_video", data.peerId);
+  });
             await newMessage.save();
             const populatedMessage = await Message.findById(newMessage._id).populate('sender', 'name');
             io.to(data.booking).emit('receive_message', populatedMessage);
