@@ -25,10 +25,19 @@ const io = new Server(server, {
     }
 });
 
-// ❗ यह ENV var 'MONGO_URI' होना चाहिए, जैसा कि Render.com में सेट है
-const db = process.env.MONGO_URI || 'mongodb+srv://davepinak0_db_user:Pinak12345@cluster0.43eqttc.mongodb.net/myFirstDatabase?retryWrites=true&w=majority';
-mongoose.connect(db).then(() => console.log('✅ MongoDB Connected...')).catch(err => console.log('❌ MongoDB Error:', err));
+// ✅ सुरक्षित तरीका
+const db = process.env.MONGO_URI;
 
+// अगर MONGO_URI सेट नहीं है, तो सर्वर को शुरू ही न करें
+if (!db) {
+  console.error('❌ FATAL ERROR: MONGO_URI is not defined in environment variables!');
+  process.exit(1); // 1 का मतलब है 'एरर के साथ बंद करो'
+}
+
+// सिर्फ env वैरिएबल से कनेक्ट करें
+mongoose.connect(db)
+  .then(() => console.log('✅ MongoDB Connected Successfully'))
+  .catch(err => console.error('❌ MongoDB Connection Error:', err.message));
 // --- API Routes ---
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
@@ -45,7 +54,7 @@ app.use('/api/disputereasons', require('./routes/disputereasons'));
 app.use('/api/chat', require('./routes/chat'));
 
 // --- End API Routes ---
-import aiRoutes from "./routes/aiRoutes.js";
+const aiRoutes = require("./routes/aiRoutes.js");
 app.use("/api/ai", aiRoutes);
 
 io.on('connection', (socket) => {

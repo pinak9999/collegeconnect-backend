@@ -12,10 +12,10 @@ const client = new Groq({
 
 router.post("/chat", async (req, res) => {
   try {
-    const { query } = req.body;
+    const { message } = req.body; // 🔥 FIXED: now reading "message"
 
-    if (!query) {
-      return res.status(400).json({ msg: "Query missing" });
+    if (!message) {
+      return res.status(400).json({ msg: "Message missing" });
     }
 
     const completion = await client.chat.completions.create({
@@ -24,9 +24,9 @@ router.post("/chat", async (req, res) => {
         {
           role: "system",
           content:
-            "You are REAP assistant. Answer in Hindi-English mix related to Rajasthan REAP colleges, branches, fees, cut off, placement.",
+            "You are REAP assistant. Answer in Hindi-English mix related to Rajasthan REAP colleges, branches, fees, cut off, placements.",
         },
-        { role: "user", content: query },
+        { role: "user", content: message },
       ],
     });
 
