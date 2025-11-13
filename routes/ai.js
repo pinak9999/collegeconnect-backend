@@ -1,4 +1,3 @@
-// routes/ai.js
 require("dotenv").config();
 const express = require("express");
 const Groq = require("groq-sdk");
@@ -9,10 +8,8 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
 });
 
-// फ्रंटएंड /api/ai/chat पर कॉल करेगा
 router.post("/chat", async (req, res) => {
   try {
-    // ✅ हम 'message' की उम्मीद कर रहे हैं
     const { message } = req.body;
 
     if (!message) {
@@ -20,7 +17,9 @@ router.post("/chat", async (req, res) => {
     }
 
     const chat = await groq.chat.completions.create({
-      model: "mixtral-8x7b-32768",
+      // ✅✅✅ यही है असली फिक्स ✅✅✅
+      model: "llama3-8b-8192", // 'mixtral' को इससे बदल दिया गया है
+      
       messages: [
         {
           role: "system",
@@ -32,10 +31,10 @@ router.post("/chat", async (req, res) => {
       max_tokens: 300
     });
 
-    // ✅ हम 'reply' वापस भेज रहे हैं
     res.json({ reply: chat.choices[0].message.content });
 
   } catch (error) {
+    // अब अगर एरर आया तो यहाँ दिखेगा
     console.error("AI ERROR:", error);
     res.status(500).json({ error: "AI server error" });
   }
