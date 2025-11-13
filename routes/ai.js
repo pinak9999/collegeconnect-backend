@@ -1,42 +1,44 @@
+// routes/ai.js
 require("dotenv").config();
 const express = require("express");
 const Groq = require("groq-sdk");
 
 const router = express.Router();
 
-console.log("🔑 GROQ KEY:", process.env.GROQ_API_KEY ? "LOADED" : "MISSING");
-
-const client = new Groq({
-  apiKey: process.env.GROQ_API_KEY,
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY
 });
 
+// फ्रंटएंड /api/ai/chat पर कॉल करेगा
 router.post("/chat", async (req, res) => {
-  try {
-    const { message } = req.body; // 🔥 FIXED: now reading "message"
+  try {
+    // ✅ हम 'message' की उम्मीद कर रहे हैं
+    const { message } = req.body;
 
-    if (!message) {
-      return res.status(400).json({ msg: "Message missing" });
-    }
+    if (!message) {
+      return res.status(400).json({ error: "Message required" });
+    }
 
-    const completion = await client.chat.completions.create({
-      model: "llama3-8b-8192",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are REAP assistant. Answer in Hindi-English mix related to Rajasthan REAP colleges, branches, fees, cut off, placements.",
-        },
-        { role: "user", content: message },
-      ],
-    });
+    const chat = await groq.chat.completions.create({
+      model: "mixtral-8x7b-32768",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are REAP Admission Assistant. Answer questions about colleges, branches, fees, placements and REAP counselling.",
+        },
+        { role: "user", content: message }
+      ],
+      max_tokens: 300
+    });
 
-    const answer = completion.choices[0].message.content;
+    // ✅ हम 'reply' वापस भेज रहे हैं
+    res.json({ reply: chat.choices[0].message.content });
 
-    res.json({ answer });
-  } catch (err) {
-    console.error("AI ERROR:", err.message);
-    res.status(500).json({ msg: "AI Error", error: err.message });
-  }
+  } catch (error) {
+    console.error("AI ERROR:", error);
+    res.status(500).json({ error: "AI server error" });
+  }
 });
 
 module.exports = router;
