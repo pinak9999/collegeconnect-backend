@@ -43,7 +43,10 @@ app.use('/api/tags', require('./routes/tags'));
 app.use('/api/colleges', require('./routes/colleges'));
 app.use('/api/disputereasons', require('./routes/disputereasons'));
 app.use('/api/chat', require('./routes/chat'));
+
 // --- End API Routes ---
+import aiRoutes from "./routes/aiRoutes.js";
+app.use("/api/ai", aiRoutes);
 
 io.on('connection', (socket) => {
     // ❗❗ [THE REAL FIX] - यह मैसेज (message) दिखना ही चाहिए!
