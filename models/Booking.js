@@ -17,9 +17,22 @@ const BookingSchema = new Schema({
     // --- (यह 'नया' (New) 'अपडेट' (Update) है) ---
     dispute_reason: { // (यह 'अब' (now) 'String' (स्ट्रिंग) (स्ट्रिंग) 'नहीं' (not) 'है' (is))
         type: Schema.Types.ObjectId,
-        ref: 'disputereason' // (यह 'DisputeReason.js' (डिस्प्यूटरीज़न.जेएस) 'को' (to) 'लिंक' (link) (लिंक) 'करता' (does) 'है' (है))
+        ref: 'disputereason' // (यह 'DisputeReason.js' (डिस्प्यूटरीज़न.जेएस) 'को' (to) 'लिंक' (link) (लिंक) 'करता' (does) 'है' (है))
     },
     // --- (अपडेट (Update) खत्म) ---
+
+    // --- 🚀 NAYA CODE YAHAN ADD KIYA GAYA (STEP 1) ---
+    proposed_time: {
+        student_time: { type: Date },
+        senior_time: { type: Date },
+    },
+    final_time: { type: Date },
+    status_timing: {
+        type: String,
+        enum: ["not_set", "student_proposed", "senior_proposed", "confirmed_time"],
+        default: "not_set",
+    },
+    // --- 🚀 END NAYA CODE ---
     
     date: { type: Date, default: Date.now }
 });
