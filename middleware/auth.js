@@ -1,38 +1,34 @@
-// फ़ाइल का नाम: middleware/auth.js
-
 const jwt = require('jsonwebtoken');
-const config = require('config'); // अगर आप config पैकेज यूज़ कर रहे हैं
-// अगर config नहीं यूज़ कर रहे, तो नीचे process.env.JWT_SECRET का यूज़ करें
 
-module.exports = function (req, res, next) {
-  // 1. हेडर से टोकन प्राप्त करें
-  // हम 'x-auth-token' और 'Authorization' दोनों चेक करेंगे
-  let token = req.header('x-auth-token') || req.header('Authorization');
+// हमारी सीक्रेट की (Key), जो routes/auth.js में है, वही यहाँ होनी चाहिए
+const JWT_SECRET = 'your_secret_key_123'; 
 
-  // 2. अगर टोकन नहीं है
+/**
+ * यह हमारा "गेटकीपर" (Middleware) है।
+ * यह API राउट को प्रोटेक्ट (protect) करेगा।
+ */
+module.exports = function(req, res, next) {
+  
+  // 1. रिक्वेस्ट (Request) के हेडर (Header) से 'x-auth-token' नाम का टोकन (token) लें
+  const token = req.header('x-auth-token');
+
+  // 2. अगर टोकन नहीं है (यूज़र लॉग-इन नहीं है), तो मना (Deny) कर दें
   if (!token) {
     return res.status(401).json({ msg: 'No token, authorization denied' });
   }
 
-  // 3. अगर टोकन "Bearer " से शुरू होता है, तो उसे हटा दें
-  if (token.startsWith('Bearer ')) {
-    token = token.slice(7, token.length).trimLeft();
-  }
-
-  // 4. टोकन को वेरीफाई करें
+  // 3. अगर टोकन है, तो उसे वेरिफाई (Verify) करें
   try {
-    // ❗ सुनिश्चित करें कि 'jwtSecret' आपकी config या .env फ़ाइल से सही आ रहा हो
-    // अगर आप .env यूज़ करते हैं: process.env.JWT_SECRET
-    // अगर आप config यूज़ करते हैं: config.get('jwtSecret')
+    // टोकन को 'decode' (डिकोड) करें
+    const decoded = jwt.verify(token, JWT_SECRET);
     
-    const secret = process.env.JWT_SECRET || config.get('jwtSecret') || "mysecrettoken"; 
-    
-    const decoded = jwt.verify(token, secret);
-
+    // 4. यूज़र की जानकारी को 'req' (रिक्वेस्ट) में जोड़ दें
     req.user = decoded.user;
-    next();
+    
+    // 5. 'next()' - यानी, "सब ठीक है, आगे (Get Users वाले फंक्शन पर) जाओ"
+    next(); 
   } catch (err) {
-    console.error("Token Verification Error:", err.message);
+    // अगर टोकन गलत (invalid) है
     res.status(401).json({ msg: 'Token is not valid' });
   }
 };
