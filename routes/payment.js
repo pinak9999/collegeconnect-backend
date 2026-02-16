@@ -8,8 +8,9 @@ const User = require('../models/User'); // User model bhi chahiye notification k
 
 // Razorpay Instance
 const instance = new Razorpay({
-    key_id: "rzp_test_RbhIpPvOLS2KkF", // Apni sahi Key ID yahan dalein
-    key_secret: "Apna_Secret_Key_Yahan_Dalein" // ⚠️ Apni Secret Key yahan dalein
+   const RAZORPAY_KEY_ID = 'rzp_test_RbhIpPvOLS2KkF';
+const RAZORPAY_KEY_SECRET = 'bWmPpwl6WLu4M8Ifdr0LZ2lP';
+const razorpay = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
 });
 
 // 1. ORDER CREATE KARNA (Ye code waisa hi rahega)
