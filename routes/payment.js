@@ -1,59 +1,120 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
-const Profile = require('../models/Profile');
-const SiteSettings = require('../models/SiteSettings');
-const User = require('../models/User'); // 1. (हमें 'User' (यूज़र) (उपयोगकर्ता) 'मॉडल' (model) (model) 'की' (of) 'ज़रूरत' (need) 'है' (is))
-const sendEmail = require('../config/email'); // 2. (हमारा 'Email' (ईमेल) (ईमेल) 'हेल्पर' (helper) (helper))
+const User = require('../models/User'); // User model bhi chahiye notification ke liye
 
-// (Razorpay (रेजरपे) (Razorpay (रेजरपे)) 'Keys' (कीज़) (चाबियाँ) 'और' (and) 'Config' (कॉन्फिग) (कॉन्फ़िगरेशन))
-const RAZORPAY_KEY_ID = 'rzp_test_RbhIpPvOLS2KkF';
-const RAZORPAY_KEY_SECRET = 'bWmPpwl6WLu4M8Ifdr0LZ2lP';
-const razorpay = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
-
-// (Create Order (ऑर्डर बनाएँ) (वही है))
-router.post('/order', auth, async (req, res) => {
-    const { seniorId } = req.body;
-    try {
-        const profile = await Profile.findOne({ user: seniorId });
-        if (!profile) return res.status(404).json({ msg: 'Senior profile not found' });
-        const settings = await SiteSettings.findOne();
-        const platformFee = settings ? settings.platformFee : 20;
-        const totalAmount = profile.price_per_session + platformFee;
-        const amountInPaise = totalAmount * 100;
-        const options = { amount: amountInPaise, currency: 'INR', receipt: `receipt_${Date.now()}` };
-        const order = await razorpay.orders.create(options);
-        res.json({ ...order, calculatedAmount: totalAmount }); 
-    } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
+// Razorpay Instance
+const instance = new Razorpay({
+    key_id: "rzp_test_RbhIpPvOLS2KkF", // Apni sahi Key ID yahan dalein
+    key_secret: "Apna_Secret_Key_Yahan_Dalein" // ⚠️ Apni Secret Key yahan dalein
 });
 
-// (Verify Payment (पेमेंट वेरीफाई करें)) (यह 'अपडेट' (update) 'हो' (has) 'गया' (gone) 'है' (है))
-// ... (Create Order (ऑर्डर बनाएँ) 'फंक्शन' (function) (Function (फंक्शन)) 'के' (of) 'बाद' (after)) ...
+// 1. ORDER CREATE KARNA (Ye code waisa hi rahega)
+router.post('/order', auth, async (req, res) => {
+    try {
+        const options = {
+            amount: 50000, // Amount in paise (e.g. 500 INR) - Frontend se dynamic aana chahiye
+            currency: "INR",
+            receipt: "receipt_" + Date.now(),
+        };
 
+        // Agar frontend se dynamic amount aa raha hai to wo use karein
+        if (req.body.amount) {
+            options.amount = req.body.amount * 100; 
+        }
+
+        const order = await instance.orders.create(options);
+        res.json(order);
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Order Creation Failed");
+    }
+});
+
+// =================================================================
+// 🚀 2. VERIFY PAYMENT & CREATE BOOKING (Main Changes Here)
+// =================================================================
 router.post('/verify', auth, async (req, res) => {
     try {
-        // ... (Verification (वेरिफिकेशन) (सत्यापन) 'लॉजिक' (logic) (तर्क) 'वही' (same) 'है' (is)) ...
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingDetails } = req.body;
-        const { senior, profileId, slot_time, duration, amount } = bookingDetails;
+        const { 
+            razorpay_order_id, 
+            razorpay_payment_id, 
+            razorpay_signature, 
+            bookingDetails // Frontend se bheja gaya data (Date, Time, SeniorId)
+        } = req.body;
+
+        // 1. Signature Verify Karna
+        // (Note: Replace 'YOUR_SECRET' with your actual Razorpay Secret Key)
+        const secret = "Apna_Secret_Key_Yahan_Dalein"; 
+        
         const body = razorpay_order_id + "|" + razorpay_payment_id;
-        const expectedSignature = crypto.createHmac('sha256', RAZORPAY_KEY_SECRET).update(body.toString()).digest('hex');
-        if (expectedSignature !== razorpay_signature) {
-            return res.status(400).json({ msg: 'Payment verification failed' });
+        const expectedSignature = crypto
+            .createHmac('sha256', secret)
+            .update(body.toString())
+            .digest('hex');
+
+        const isAuthentic = expectedSignature === razorpay_signature;
+
+        if (isAuthentic) {
+            // ✅ Payment Successful -> Ab Booking Save Karo
+
+            // --- Time Calculation Logic (Same as before) ---
+            // Frontend se date aur time nikaalo
+            const { date, time, senior } = bookingDetails;
+            
+            // Default time agar frontend se na aaye
+            const safeDate = date ? new Date(date) : new Date();
+            const safeTime = time || "10:00";
+
+            // End Time Calculate karo (30 mins session)
+            const [hours, minutes] = safeTime.split(':').map(Number);
+            let endHours = hours;
+            let endMinutes = minutes + 30;
+            if (endMinutes >= 60) {
+                endHours += 1;
+                endMinutes -= 60;
+            }
+            
+            const startTimeFormatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            const endTimeFormatted = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+
+
+            // --- Database me Save Karna ---
+            const newBooking = new Booking({
+                student: req.user.id,     // Logged in user
+                senior: senior,           // Senior ID from bookingDetails
+                topic: "Paid Mentorship Session",
+                
+                // 🚀 Saving Payment Details
+                paymentId: razorpay_payment_id,
+                orderId: razorpay_order_id,
+                amount: bookingDetails.amount,
+                status: "confirmed",      // Payment ho gayi hai, isliye confirmed
+
+                // 🚀 Saving Schedule Details (Sabse Zaruri)
+                scheduledDate: safeDate,
+                startTime: startTimeFormatted,
+                endTime: endTimeFormatted
+            });
+
+            await newBooking.save();
+
+            res.json({ 
+                msg: "Payment Verified and Booking Created Successfully", 
+                bookingId: newBooking._id 
+            });
+
+        } else {
+            res.status(400).json({ msg: "Payment Verification Failed (Invalid Signature)" });
         }
-        const newBooking = new Booking({
-            student: req.user.id, senior: senior, profile: profileId,
-            slot_time: slot_time, session_duration_minutes: duration,
-            amount_paid: amount, razorpay_payment_id: razorpay_payment_id
-        });
-        await newBooking.save();
-        
-      
-        
-        res.json({ msg: 'Booking Confirmed!', booking: newBooking });
-    } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
+
+    } catch (err) {
+        console.error("Payment Verify Error:", err);
+        res.status(500).send("Server Error");
+    }
 });
 
 module.exports = router;
