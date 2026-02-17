@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
-
+const User = require('../models/User');
 // 📂 Get Student Bookings (With Debugging Logs)
 router.get('/student/my', auth, async (req, res) => {
     try {
