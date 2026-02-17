@@ -1,60 +1,46 @@
 const mongoose = require('mongoose');
 
-const bookingSchema = new mongoose.Schema({
-  // --- 🟢 Existing Fields ---
+const BookingSchema = new mongoose.Schema({
   student: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  mentor: {
+  mentor: { // Hamne 'senior' ki jagah 'mentor' use kiya hai consistency ke liye
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
+  topic: {
+    type: String,
+    required: true
+  },
+  // 📅 Date & Time Fields (Zaroori)
+  scheduledDate: {
+    type: Date,
+    required: true
+  },
+  startTime: {
+    type: String, // "14:30"
+    required: true
+  },
+  endTime: {
+    type: String, // "15:00"
+    required: true
+  },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'cancelled', 'completed'],
+    enum: ['pending', 'confirmed', 'completed', 'cancelled'],
     default: 'pending'
   },
-  topic: { type: String },
-  
-  // --- 🚀 NEW ADDITION (Slot Booking System) ---
-  // Stores the date of the meeting (e.g., 2024-02-20)
-  scheduledDate: { 
-    type: Date, 
-    required: true 
-  },
-  // Stores start time in 24h format "HH:MM" (e.g., "14:30")
-  startTime: { 
-    type: String, 
-    required: true 
-  },
-  // Stores end time "HH:MM" (e.g., "15:00")
-  endTime: { 
-    type: String, 
-    required: true 
-  },
-  // Unique Room ID for the video call
-  meetingLink: { 
-    type: String, 
-    default: () => `room-${Date.now()}` 
-  },
-  
-  // Payment Info
+  meetingLink: { type: String },
   paymentId: { type: String },
   orderId: { type: String },
   amount: { type: Number },
-  amount_paid: { type: Number }, // For payouts logic
-  
-  // Ratings & Disputes
   rating: { type: Number, default: 0 },
-  review_text: { type: String },
-  dispute_status: { type: String, default: 'None' }, // None, Pending, Resolved
-  dispute_reason: { type: mongoose.Schema.Types.ObjectId, ref: 'disputereason' },
-  payout_status: { type: String, default: 'Unpaid' }, // Unpaid, Paid
+  rated: { type: Boolean, default: false },
+  dispute_status: { type: String, default: 'none' },
+  dispute_reason: { type: mongoose.Schema.Types.ObjectId, ref: 'DisputeReason' }
+}, { timestamps: true });
 
-  createdAt: { type: Date, default: Date.now }
-});
-
-module.exports = mongoose.model('Booking', bookingSchema);
+module.exports = mongoose.model('Booking', BookingSchema);
