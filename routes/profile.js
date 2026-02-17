@@ -109,14 +109,7 @@ router.put('/availability', auth, async (req, res) => {
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
-
-// --- (यह रहा 100% "Accurate" (सही) 'फिक्स' (Fix) (ठीक): 'ऑर्डर' (Order) (क्रम) 'बदल' (Changed) 'दिया' (did) 'गया' (was) 'है' (है)) ---
-
-/**
- * @route   GET /api/profile/senior/stats  (यह 'पहले' (FIRST) 'आएगा' (Comes))
- * @desc    Get stats for the logged-in senior
- * @access  Private (Auth)
- */
+// --- STATS ROUTE ---
 router.get('/senior/stats', auth, async (req, res) => {
     try {
         const seniorId = req.user.id;
@@ -139,11 +132,7 @@ router.get('/senior/stats', auth, async (req, res) => {
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
-/**
- * @route   GET /api/profile/senior/:userId (यह 'बाद' (SECOND) 'में' (in) 'आएगा' (Comes))
- * @desc    Get a specific Senior's profile (for booking page)
- * @access  Private (Auth)
- */
+// --- SENIOR PROFILE BY ID ---
 router.get('/senior/:userId', auth, async (req, res) => {
     try {
         const profile = await Profile.findOne({ user: req.params.userId })
@@ -154,6 +143,26 @@ router.get('/senior/:userId', auth, async (req, res) => {
         res.json(profile);
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
-// --- (अपडेट (Update) खत्म) ---
+
+// =========================================================
+// 🚀 3. PUBLIC ROUTES (New Addition)
+// =========================================================
+
+// (GET /api/profile/public/top-rated) 
+// 🔥 Ye naya route hai jo missing tha
+router.get('/public/top-rated', async (req, res) => {
+    try {
+        // Find profiles, populate user details, sort by rating desc, limit to 5
+        const profiles = await Profile.find()
+            .populate('user', 'name avatar')
+            .sort({ average_rating: -1 }) // Highest rating first
+            .limit(5);
+
+        res.json(profiles);
+    } catch (err) { 
+        console.error("Top Rated Error:", err.message); 
+        res.status(500).send('Server Error'); 
+    }
+});
 
 module.exports = router;
