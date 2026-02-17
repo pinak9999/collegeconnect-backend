@@ -4,7 +4,7 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
-
+const User = require('../models/User');
 // ⚠️ KEYS (Make sure these match your Razorpay Dashboard)
 const RAZORPAY_KEY_ID = 'rzp_test_RbhIpPvOLS2KkF';
 const RAZORPAY_KEY_SECRET = 'bWmPpwl6WLu4M8Ifdr0LZ2lP'; 

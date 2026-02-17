@@ -10,7 +10,8 @@ const cors = require('cors');
 const http = require('http');
 const { Server } = require("socket.io");
 const Message = require('./models/Message');
-
+require('./models/User'); 
+require('./models/Booking'); // Booking model bhi load kar lo safety ke liye
 // ----------------------------------------
 // 🔹 Express & HTTP Server setup
 // ----------------------------------------

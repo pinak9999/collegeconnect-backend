@@ -3,7 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
 const Booking = require('../models/Booking');
-
+const User = require('../models/User');
 // =========================================================================
 // 🚀 1. CREATE BOOKING (Fixed 'mentor' field name)
 // =========================================================================
