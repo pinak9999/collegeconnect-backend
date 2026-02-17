@@ -5,9 +5,9 @@ const crypto = require('crypto');
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 
-// ⚠️ IMPORTANT: Ye dono Keys Razorpay Dashboard se Copy-Paste karein (Check karein ki koi Space na ho)
+// Razorpay Keys
 const RAZORPAY_KEY_ID = 'rzp_test_RbhIpPvOLS2KkF'; 
-const RAZORPAY_KEY_SECRET = 'bWmPpwl6WLu4M8Ifdr0LZ2lP'; // ❌ Agar ye galat hua to fail hoga!
+const RAZORPAY_KEY_SECRET = 'bWmPpwl6WLu4M8Ifdr0LZ2lP'; 
 
 const instance = new Razorpay({
     key_id: RAZORPAY_KEY_ID,
@@ -23,7 +23,6 @@ router.post('/order', auth, async (req, res) => {
             receipt: `rcpt_${Date.now()}`,
         };
         const order = await instance.orders.create(options);
-        console.log("✅ Order Created:", order.id);
         res.status(200).json(order);
     } catch (err) {
         console.error("❌ Order Error:", err);
@@ -31,66 +30,66 @@ router.post('/order', auth, async (req, res) => {
     }
 });
 
-// 2. VERIFY PAYMENT (Debug Mode On)
+// 2. VERIFY PAYMENT & SAVE BOOKING
 router.post('/verify', auth, async (req, res) => {
     try {
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingDetails } = req.body;
+        const { 
+            razorpay_order_id, 
+            razorpay_payment_id, 
+            razorpay_signature, 
+            mentorId,     // Front-end se mentorId aa raha hai
+            date, 
+            time, 
+            topic, 
+            amount 
+        } = req.body;
 
-        // --- 🔍 DEBUGGING LOGS (Terminal me dekhein) ---
-        console.log("\n--- PAYMENT VERIFICATION START ---");
-        console.log("1. Order ID Recd:", razorpay_order_id);
-        console.log("2. Payment ID Recd:", razorpay_payment_id);
-        console.log("3. Signature Recd from Frontend:", razorpay_signature);
-        
-        // --- Signature Generation ---
+        // --- Signature Verification ---
         const body = razorpay_order_id + "|" + razorpay_payment_id;
-        
         const expectedSignature = crypto
             .createHmac("sha256", RAZORPAY_KEY_SECRET)
             .update(body.toString())
             .digest("hex");
 
-        console.log("4. Generated Signature (Backend):", expectedSignature);
-        console.log("--- COMPARE END ---\n");
-
-        // --- MATCH CHECK ---
         if (expectedSignature === razorpay_signature) {
-            console.log("✅ SIGNATURE MATCHED! Saving Booking...");
+            console.log("✅ Signature Matched! Saving Booking...");
             
-            // ... (Data Saving Logic) ...
-            const { date, time, senior, amount } = bookingDetails;
+            // --- Time Logic (30 Mins Slot) ---
             const [hours, minutes] = (time || "10:00").split(':').map(Number);
             let endHours = hours;
             let endMinutes = minutes + 30;
             if (endMinutes >= 60) { endHours += 1; endMinutes -= 60; }
+            
             const startTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
             const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
 
+            // --- Save to Database ---
             const newBooking = new Booking({
                 student: req.user.id,
-                senior: senior,
-                topic: "Paid Mentorship",
-                paymentId: razorpay_payment_id,
-                orderId: razorpay_order_id,
-                amount: amount,
-                status: "confirmed",
+                mentor: mentorId,   // 🟢 FIX: 'senior' ki jagah 'mentor' (Model Match)
+                topic: topic || "Paid Mentorship",
                 scheduledDate: new Date(date),
                 startTime,
                 endTime,
-                meetingLink: `room-${razorpay_payment_id.slice(-6)}`
+                status: "confirmed",
+                meetingLink: `room-${razorpay_payment_id.slice(-6)}`,
+                // Payment fields
+                payment_id: razorpay_payment_id,
+                order_id: razorpay_order_id,
+                amount_paid: amount
             });
 
             await newBooking.save();
-            return res.status(200).json({ success: true, msg: "Booking Confirmed!" });
+            return res.status(200).json({ success: true, msg: "Booking Confirmed!", booking: newBooking });
 
         } else {
-            console.error("❌ SIGNATURE MISMATCH! (Key Secret Galat hai ya Data tampered hai)");
-            return res.status(400).json({ success: false, msg: "Signature Mismatch" });
+            console.error("❌ Signature Mismatch!");
+            return res.status(400).json({ success: false, msg: "Signature Verification Failed" });
         }
 
     } catch (err) {
-        console.error("❌ Server Error:", err);
-        res.status(500).json({ msg: "Server Error" });
+        console.error("❌ Server Error during payment verification:", err.message);
+        res.status(500).json({ success: false, msg: "Internal Server Error" });
     }
 });
 
