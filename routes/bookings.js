@@ -4,34 +4,37 @@ const auth = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
 const Booking = require('../models/Booking');
 
-// 1. GET STUDENT BOOKINGS (Student Dashboard के लिए)
+// =========================================================================
+// 1. GET STUDENT BOOKINGS (Student Dashboard)
+// =========================================================================
 router.get('/student/my', auth, async (req, res) => {
     try {
-        // 🟢 FIX: 'mentor' को पॉप्युलेट करें, 'senior' को नहीं
+        // 🟢 FIX 1: 'senior' की जगह 'mentor' ढूँढें
         const bookings = await Booking.find({ student: req.user.id })
             .populate('mentor', 'name email avatar mobileNumber') 
-            .sort({ scheduledDate: -1, startTime: -1 }); // 🟢 FIX: सही सॉर्टिंग
+            .sort({ scheduledDate: -1, startTime: -1 }); // 🟢 FIX 2: सही सॉर्टिंग
 
-        // 🚀 बग फिक्स: फ्रंटएंड के लिए 'rated' स्टेटस जोड़ना
+        // 🚀 बग फिक्स: फ्रंटएंड 'rated' स्टेटस मांगता है
         const bookingsWithRatedStatus = bookings.map(b => {
             const bookingObject = b.toObject();
-            // अगर रेटिंग मौजूद है, तो rated: true, वरना false
-            bookingObject.rated = !!bookingObject.rating; 
+            bookingObject.rated = !!bookingObject.rating; // रेटिंग है तो true
             return bookingObject;
         });
 
         res.json(bookingsWithRatedStatus);
 
     } catch (err) { 
-        console.error("Fetch Error:", err.message); 
+        console.error("❌ GET BOOKINGS ERROR:", err.message); 
         res.status(500).json({ msg: 'Server Error loading bookings' }); 
     }
 });
 
-// 2. GET MENTOR BOOKINGS (Senior Dashboard के लिए)
+// =========================================================================
+// 2. GET MENTOR BOOKINGS (Senior Dashboard)
+// =========================================================================
 router.get('/senior/my', auth, async (req, res) => {
     try {
-        // 🟢 FIX: 'mentor' फील्ड में यूज़र की ID चेक करें
+        // 🟢 FIX 3: यहाँ भी 'senior' की जगह 'mentor' चेक करें
         const bookings = await Booking.find({ mentor: req.user.id })
             .populate('student', 'name email mobileNumber avatar')
             .sort({ scheduledDate: -1, startTime: -1 });
@@ -43,7 +46,9 @@ router.get('/senior/my', auth, async (req, res) => {
     }
 });
 
-// 3. GET ALL BOOKINGS (Admin Dashboard के लिए)
+// =========================================================================
+// 3. GET ALL BOOKINGS (Admin)
+// =========================================================================
 router.get('/admin/all', isAdmin, async (req, res) => {
     try {
         const page = parseInt(req.query.page || '1');
