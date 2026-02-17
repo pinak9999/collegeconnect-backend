@@ -46,6 +46,13 @@ mongoose.connect(MONGO_URI, {
   .then(() => console.log('✅ MongoDB Connected Successfully'))
   .catch((err) => console.error('❌ MongoDB Connection Error:', err.message));
 
+// 👇👇👇👇👇👇👇👇👇👇👇👇👇👇👇👇
+// 🔥 CRITICAL FIX: Models को यहाँ रजिस्टर करें
+// इससे "Schema hasn't been registered" एरर नहीं आएगा
+require('./models/User');
+require('./models/Booking');
+// 👆👆👆👆👆👆👆👆👆👆👆👆👆👆👆👆
+
 // ----------------------------------------
 // 🔹 Socket.io Setup
 // ----------------------------------------
@@ -58,7 +65,6 @@ const io = new Server(server, {
 });
 
 // --- 🚀 SOCKET MIDDLEWARE (For API Routes) ---
-// यह मिडलवेयर सभी Routes में socket instance (req.io) उपलब्ध कराता है
 app.use((req, res, next) => {
   req.io = io;
   next();
@@ -71,7 +77,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/payment', require('./routes/payment'));
-app.use('/api/bookings', require('./routes/bookings')); // 👈 Propose/Accept API यहीं है
+app.use('/api/bookings', require('./routes/bookings')); 
 app.use('/api/ratings', require('./routes/ratings'));
 app.use('/api/disputes', require('./routes/disputes'));
 app.use('/api/payouts', require('./routes/payouts'));
@@ -92,7 +98,7 @@ app.get('/', (req, res) => {
 io.on('connection', (socket) => {
   console.log(`🟢 A user connected: ${socket.id}`);
 
-  // यूज़र को उसके पर्सनल ID वाले रूम में जॉइन कराएं (Notifications के लिए)
+  // यूज़र को उसके पर्सनल ID वाले रूम में जॉइन कराएं
   socket.on('join_room', (userId) => {
     socket.join(userId);
     console.log(`📡 User ${socket.id} joined personal room: ${userId}`);
@@ -111,7 +117,6 @@ io.on('connection', (socket) => {
       await newMessage.save();
       const populatedMessage = await Message.findById(newMessage._id).populate('sender', 'name');
       
-      // रूम और रिसीवर दोनों को मैसेज भेजें
       io.to(data.booking).emit('receive_message', populatedMessage);
       console.log(`💌 Message sent in room ${data.booking}`);
     } catch (err) {
