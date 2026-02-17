@@ -1,69 +1,44 @@
 const mongoose = require('mongoose');
 
-const BookingSchema = new mongoose.Schema({
+const bookingSchema = new mongoose.Schema({
+  // --- 🟢 Existing Fields (Purana Code) ---
   student: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  mentor: { // Hamne 'senior' ko 'mentor' kar diya hai consistency ke liye
+  mentor: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   },
-  topic: {
-    type: String,
-    required: true
-  },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'completed', 'cancelled'],
+    enum: ['pending', 'confirmed', 'cancelled', 'completed'],
     default: 'pending'
   },
+  topic: { type: String },
   
-  // 📅 NEW FIELDS FOR DATE & TIME
-  scheduledDate: {
-    type: Date,
-    required: true
+  // --- 🚀 NEW ADDITION (Naya Code Yahan Hai) ---
+  // Ye batayega ki meeting kab hai
+  scheduledDate: { 
+    type: Date, 
+    required: true // Example: 2024-02-18T00:00:00.000Z
   },
-  startTime: {
-    type: String, // Format: "14:30"
-    required: true
+  startTime: { 
+    type: String, 
+    required: true // Example: "14:30" (24-hour format)
   },
-  endTime: {
-    type: String, // Format: "15:00"
-    required: true
+  endTime: { 
+    type: String, 
+    required: true // Example: "15:00"
+  },
+  meetingLink: { 
+    type: String, 
+    default: () => `room-${Date.now()}` // Auto-generate room ID
   },
   
-  meetingLink: {
-    type: String
-  },
-  paymentId: {
-    type: String
-  },
-  orderId: {
-    type: String
-  },
-  amount: {
-    type: Number
-  },
-  rating: {
-    type: Number,
-    default: 0
-  },
-  rated: {
-    type: Boolean,
-    default: false
-  },
-  dispute_status: {
-    type: String,
-    enum: ['none', 'pending', 'resolved', 'not_allowed'],
-    default: 'none'
-  },
-  dispute_reason: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'DisputeReason'
-  }
-}, { timestamps: true });
+  createdAt: { type: Date, default: Date.now }
+});
 
-module.exports = mongoose.model('Booking', BookingSchema);
+module.exports = mongoose.model('Booking', bookingSchema);
