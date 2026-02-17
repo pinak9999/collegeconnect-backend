@@ -5,9 +5,9 @@ const crypto = require('crypto');
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 
-// ⚠️ Keys check kar lena (Space nahi hona chahiye)
-const RAZORPAY_KEY_ID = 'rzp_test_RbhIpPvOLS2KkF'; 
-const RAZORPAY_KEY_SECRET = 'bWmPpwl6WLu4M8Ifdr0LZ2lP';
+// ⚠️ KEYS check karein
+const RAZORPAY_KEY_ID = 'rzp_test_RbhIpPvOLS2KkF';
+const RAZORPAY_KEY_SECRET = 'bWmPpwl6WLu4M8Ifdr0LZ2lP'; 
 
 const instance = new Razorpay({
     key_id: RAZORPAY_KEY_ID,
@@ -25,17 +25,20 @@ router.post('/order', auth, async (req, res) => {
         const order = await instance.orders.create(options);
         res.status(200).json(order);
     } catch (err) {
-        console.error("Order Error:", err);
+        console.error("❌ Order Error:", err);
         res.status(500).send("Order Creation Failed");
     }
 });
 
-// 2. VERIFY PAYMENT (Fixed 'mentor' error)
+// 2. VERIFY PAYMENT (Fixed Mentor Error)
 router.post('/verify', auth, async (req, res) => {
     try {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingDetails } = req.body;
 
-        // Signature Check
+        // --- 🔍 DEBUG LOG: Check karein data aa raha hai ya nahi ---
+        console.log("📥 Booking Details Received:", bookingDetails);
+
+        // 1. Signature Check
         const body = razorpay_order_id + "|" + razorpay_payment_id;
         const expectedSignature = crypto
             .createHmac("sha256", RAZORPAY_KEY_SECRET)
@@ -46,25 +49,30 @@ router.post('/verify', auth, async (req, res) => {
             return res.status(400).json({ success: false, msg: "Signature Mismatch" });
         }
 
-        // ✅ Data Formatting
-        const { date, time, senior, amount } = bookingDetails;
+        // 2. Extract Data
+        const { date, time, senior, seniorId, amount } = bookingDetails;
         
-        // Time Formatting Logic
+        // 🚀 FIX: Mentor ID ko pakka karein (Senior ya SeniorId dono check karein)
+        const finalMentorId = senior || seniorId; 
+
+        if (!finalMentorId) {
+            console.error("❌ ERROR: Mentor ID missing in bookingDetails!");
+            return res.status(400).json({ success: false, msg: "Mentor ID is missing. Cannot book." });
+        }
+
+        // Time Formatting
         const [hours, minutes] = (time || "10:00").split(':').map(Number);
         let endHours = hours;
         let endMinutes = minutes + 30;
         if (endMinutes >= 60) { endHours += 1; endMinutes -= 60; }
-
         const startTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
         const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
 
-        // 🚀 MAIN FIX HERE: 'senior' variable ko 'mentor' key me daalna hai
+        // 3. Save to DB
         const newBooking = new Booking({
             student: req.user.id,
-            
-            mentor: senior,  // ✅ CORRECTED: Pehle yahan 'senior: senior' tha, jo galat tha.
-            
-            topic: "Paid Mentorship",
+            mentor: finalMentorId, // ✅ Ab ye undefined nahi hoga
+            topic: "Paid Mentorship Session",
             paymentId: razorpay_payment_id,
             orderId: razorpay_order_id,
             amount: amount,
@@ -76,11 +84,17 @@ router.post('/verify', auth, async (req, res) => {
         });
 
         await newBooking.save();
-        res.status(200).json({ success: true, msg: "Booking Confirmed!" });
+        console.log("✅ Booking Saved Successfully!");
+        
+        res.status(200).json({ success: true, msg: "Booking Confirmed!", bookingId: newBooking._id });
 
     } catch (err) {
-        console.error("❌ Error:", err); // Ab console me exact error dikhega
-        res.status(500).json({ msg: "Server Error: " + err.message });
+        console.error("❌ Verify Error:", err);
+        // Agar validation error hai to wahi dikhayein
+        if (err.name === 'ValidationError') {
+            return res.status(400).json({ msg: "Validation Error: " + err.message });
+        }
+        res.status(500).json({ msg: "Server Error" });
     }
 });
 
