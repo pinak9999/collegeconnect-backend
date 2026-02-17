@@ -1,51 +1,160 @@
+// ========================================
+// ✅ CollegeConnect Backend (Full Version)
+// Chat + Video Call + Mongo + Socket.io
+// ========================================
+
+require('dotenv').config();
 const express = require('express');
-const router = express.Router();
-const auth = require('../middleware/auth');
-const Booking = require('../models/Booking');
-const User = require('../models/User'); // ✅ Ye line zaroori hai
+const mongoose = require('mongoose');
+const cors = require('cors');
+const http = require('http');
+const { Server } = require("socket.io");
+const Message = require('./models/Message');
 
-// =========================================================================
-// 1. GET STUDENT BOOKINGS (CRASH PROOF VERSION)
-// =========================================================================
-router.get('/student/my', auth, async (req, res) => {
+// ----------------------------------------
+// 🔹 Express & HTTP Server setup
+// ----------------------------------------
+const app = express();
+const server = http.createServer(app);
+
+// ----------------------------------------
+// 🔹 Allowed Frontend URLs (CORS)
+// ----------------------------------------
+const FRONTEND_URL = process.env.CLIENT_URL || 'https://collegeconnect-frontend.vercel.app';
+
+app.use(cors({
+  origin: [FRONTEND_URL, "http://localhost:3000", "http://localhost:5173"],
+  credentials: true
+}));
+
+app.use(express.json());
+
+// ----------------------------------------
+// 🔹 MongoDB Connection
+// ----------------------------------------
+const MONGO_URI = process.env.MONGO_URI;
+
+if (!MONGO_URI) {
+  console.error('❌ FATAL ERROR: MONGO_URI not defined in environment variables!');
+  process.exit(1);
+}
+
+mongoose.connect(MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+  .then(() => console.log('✅ MongoDB Connected Successfully'))
+  .catch((err) => console.error('❌ MongoDB Connection Error:', err.message));
+
+// ----------------------------------------
+// 🔹 Socket.io Setup
+// ----------------------------------------
+const io = new Server(server, {
+  cors: {
+    origin: [FRONTEND_URL, "http://localhost:3000", "http://localhost:5173"],
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
+
+// --- 🚀 SOCKET MIDDLEWARE (For API Routes) ---
+// यह मिडलवेयर सभी Routes में socket instance (req.io) उपलब्ध कराता है
+app.use((req, res, next) => {
+  req.io = io;
+  next();
+});
+
+// ----------------------------------------
+// 🔹 API Routes Mounting
+// ----------------------------------------
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/users', require('./routes/users'));
+app.use('/api/profile', require('./routes/profile'));
+app.use('/api/payment', require('./routes/payment'));
+app.use('/api/bookings', require('./routes/bookings')); // 👈 Propose/Accept API यहीं है
+app.use('/api/ratings', require('./routes/ratings'));
+app.use('/api/disputes', require('./routes/disputes'));
+app.use('/api/payouts', require('./routes/payouts'));
+app.use('/api/settings', require('./routes/settings'));
+app.use('/api/tags', require('./routes/tags'));
+app.use('/api/colleges', require('./routes/colleges'));
+app.use('/api/disputereasons', require('./routes/disputereasons'));
+app.use('/api/chat', require('./routes/chat'));
+
+// Root route
+app.get('/', (req, res) => {
+  res.send('🚀 CollegeConnect Backend is Live');
+});
+
+// ----------------------------------------
+// 🔹 SOCKET.IO MAIN LOGIC (Chat & Video)
+// ----------------------------------------
+io.on('connection', (socket) => {
+  console.log(`🟢 A user connected: ${socket.id}`);
+
+  // यूज़र को उसके पर्सनल ID वाले रूम में जॉइन कराएं (Notifications के लिए)
+  socket.on('join_room', (userId) => {
+    socket.join(userId);
+    console.log(`📡 User ${socket.id} joined personal room: ${userId}`);
+  });
+
+  // --- CHAT LOGIC ---
+  socket.on('send_message', async (data) => {
     try {
-        console.log("📥 Fetching bookings for User ID:", req.user.id);
+      const newMessage = new Message({
+        booking: data.booking,
+        sender: data.sender,
+        receiver: data.receiver,
+        text: data.text
+      });
 
-        const bookings = await Booking.find({ student: req.user.id })
-            // ⚠️ NOTE: Hum sirf wahi fields populate kar rahe hain jo pakka exist karte hain
-            .populate('mentor', 'name email avatar mobileNumber') 
-            .sort({ createdAt: -1 }); // Latest booking upar
+      await newMessage.save();
+      const populatedMessage = await Message.findById(newMessage._id).populate('sender', 'name');
+      
+      // रूम और रिसीवर दोनों को मैसेज भेजें
+      io.to(data.booking).emit('receive_message', populatedMessage);
+      console.log(`💌 Message sent in room ${data.booking}`);
+    } catch (err) {
+      console.error('❌ Socket.io save message error:', err);
+    }
+  });
 
-        console.log(`✅ Success: Found ${bookings.length} bookings`);
-        
-        // Check karein ki data sahi format mein ja raha hai ya nahi
-        if (!bookings) {
-            return res.json([]);
+  // --- VIDEO CALL LOGIC ---
+  socket.on("join_video_room", (data) => {
+    const { room, peerId, name } = data || {};
+    if (!room || !peerId) return;
+
+    socket.join(room);
+    socket.peerId = peerId;
+    socket.userName = name || "User";
+
+    console.log(`🎥 Video: ${socket.userName} joined room ${room}`);
+
+    const clients = io.sockets.adapter.rooms.get(room);
+    if (clients) {
+      clients.forEach((clientId) => {
+        if (clientId !== socket.id) {
+          const s = io.sockets.sockets.get(clientId);
+          if (s?.peerId) {
+            socket.emit("other_user_for_video", {
+              peerId: s.peerId,
+              name: s.userName || "Peer",
+            });
+          }
         }
-
-        res.json(bookings);
-
-    } catch (err) { 
-        console.error("❌ ROUTE ERROR (GET /student/my):", err.message);
-        // 500 error bhejne ke bajaye empty array bhejo taki frontend crash na ho
-        res.status(500).json({ msg: "Server Error loading bookings" }); 
+      });
     }
+  });
+
+  socket.on("disconnect", () => {
+    console.log(`🔴 User disconnected: ${socket.id}`);
+  });
 });
 
-// =========================================================================
-// 2. GET MENTOR BOOKINGS
-// =========================================================================
-router.get('/senior/my', auth, async (req, res) => {
-    try {
-        const bookings = await Booking.find({ mentor: req.user.id })
-            .populate('student', 'name email mobileNumber avatar')
-            .sort({ createdAt: -1 });
-            
-        res.json(bookings);
-    } catch (err) { 
-        console.error("❌ ROUTE ERROR (GET /senior/my):", err.message); 
-        res.status(500).send('Server Error'); 
-    }
+// ----------------------------------------
+// 🔹 Server Start
+// ----------------------------------------
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
-
-module.exports = router;
