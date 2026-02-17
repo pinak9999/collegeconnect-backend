@@ -3,12 +3,10 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
 const Booking = require('../models/Booking');
-
-// ✅ FIX: Ye line bohot zaroori hai "Schema hasn't been registered" error hatane ke liye
 const User = require('../models/User'); 
 
 // =========================================================================
-// 1. CREATE BOOKING (Booking Banana)
+// 1. CREATE BOOKING (Manual / Free or Test Route)
 // =========================================================================
 router.post('/', auth, async (req, res) => {
   try {
@@ -18,7 +16,7 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ msg: 'Please provide Topic, Date, and Time.' });
     }
 
-    // Time Calculation
+    // Time Calculation (Add 30 mins)
     const [hours, minutes] = time.split(':').map(Number);
     let endHours = hours;
     let endMinutes = minutes + 30;
@@ -50,20 +48,17 @@ router.post('/', auth, async (req, res) => {
 });
 
 // =========================================================================
-// 🚀 2. GET STUDENT BOOKINGS (Yahan Error aa raha tha)
+// 🚀 2. GET STUDENT BOOKINGS
 // =========================================================================
 router.get('/student/my', auth, async (req, res) => {
     try {
         console.log("📥 Fetching bookings for student:", req.user.id);
 
         const bookings = await Booking.find({ student: req.user.id })
-            // ✅ Yahan 'mentor' populate kar rahe hain. 
-            // Agar User model load nahi hua to ye crash karega. Upar humne fix kar diya hai.
             .populate('mentor', 'name email avatar') 
             .populate('dispute_reason', 'reason') 
             .sort({ scheduledDate: -1, startTime: -1 });
 
-        console.log(`✅ Found ${bookings.length} bookings`);
         res.json(bookings);
 
     } catch (err) { 
