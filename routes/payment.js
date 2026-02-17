@@ -30,16 +30,14 @@ router.post('/order', auth, async (req, res) => {
     }
 });
 
-// 2. VERIFY PAYMENT & SAVE BOOKING
+// 2. VERIFY PAYMENT & SAVE BOOKING (Simple Mode)
 router.post('/verify', auth, async (req, res) => {
     try {
         const { 
             razorpay_order_id, 
             razorpay_payment_id, 
             razorpay_signature, 
-            mentorId,     // Front-end se mentorId aa raha hai
-            date, 
-            time, 
+            mentorId, 
             topic, 
             amount 
         } = req.body;
@@ -52,28 +50,19 @@ router.post('/verify', auth, async (req, res) => {
             .digest("hex");
 
         if (expectedSignature === razorpay_signature) {
-            console.log("✅ Signature Matched! Saving Booking...");
+            console.log("✅ Signature Matched! Saving Simplified Booking...");
             
-            // --- Time Logic (30 Mins Slot) ---
-            const [hours, minutes] = (time || "10:00").split(':').map(Number);
-            let endHours = hours;
-            let endMinutes = minutes + 30;
-            if (endMinutes >= 60) { endHours += 1; endMinutes -= 60; }
-            
-            const startTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-            const endTime = `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
-
             // --- Save to Database ---
+            // 🟢 यहाँ से date और time हटा दिया गया है
             const newBooking = new Booking({
                 student: req.user.id,
-                mentor: mentorId,   // 🟢 FIX: 'senior' ki jagah 'mentor' (Model Match)
-                topic: topic || "Paid Mentorship",
-                scheduledDate: new Date(date),
-                startTime,
-                endTime,
-                status: "confirmed",
+                mentor: mentorId,   
+                topic: topic || "Mentorship Session",
+                status: "confirmed", // सीधे कन्फर्म
+                scheduledDate: new Date(), // आज की डेट डिफ़ॉल्ट रख दी है
+                startTime: "Flexible",     // समय बाद में तय होगा
+                endTime: "Flexible",
                 meetingLink: `room-${razorpay_payment_id.slice(-6)}`,
-                // Payment fields
                 payment_id: razorpay_payment_id,
                 order_id: razorpay_order_id,
                 amount_paid: amount

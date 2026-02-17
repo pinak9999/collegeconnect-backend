@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 
 const bookingSchema = new mongoose.Schema({
-  // --- 🟢 Existing Fields (Purana Code) ---
   student: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -15,29 +14,30 @@ const bookingSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['pending', 'confirmed', 'cancelled', 'completed'],
-    default: 'pending'
+    default: 'confirmed' // 🟢 सीधे कन्फर्म रखें क्योंकि डेट का झंझट नहीं है
   },
-  topic: { type: String },
+  topic: { 
+    type: String, 
+    default: "Mentorship Session" 
+  },
   
-  // --- 🚀 NEW ADDITION (Naya Code Yahan Hai) ---
-  // Ye batayega ki meeting kab hai
+  // --- 🚀 Simplified Fields (No longer required) ---
+  // यूज़र को अब ये चुनने की ज़रूरत नहीं, बैकएंड में एरर नहीं आएगा
   scheduledDate: { 
-    type: Date, 
-    required: true // Example: 2024-02-18T00:00:00.000Z
+    type: Date 
   },
   startTime: { 
-    type: String, 
-    required: true // Example: "14:30" (24-hour format)
+    type: String 
   },
   endTime: { 
-    type: String, 
-    required: true // Example: "15:00"
+    type: String 
   },
   meetingLink: { 
     type: String, 
-    default: () => `room-${Date.now()}` // Auto-generate room ID
+    default: () => `room-${Date.now()}` 
   },
   
+  payment_id: { type: String }, // पेमेंट ट्रैक करने के लिए
   createdAt: { type: Date, default: Date.now }
 });
 
