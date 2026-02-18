@@ -1,100 +1,107 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose'); // Mongoose direct import kiya
+const mongoose = require('mongoose');
 const auth = require('../middleware/auth');
 
-// ✅ Models ko Explicitly Load karein (MissingSchemaError hatane ke liye)
-const Booking = require('../models/Booking');
-const User = require('../models/User');
+// 👇 Models को सीधे Memory से उठाना सबसे सुरक्षित है
+const Booking = mongoose.model('Booking');
+// User model dynamic load inside route to avoid circular dependency errors
 
 // =========================================================
-// 👨‍🏫 GET SENIOR BOOKINGS (Debugged & Fixed)
+// 🎓 1. GET STUDENT BOOKINGS (Final Fix)
 // =========================================================
-router.get('/senior/my', auth, async (req, res) => {
+router.get('/student/my', auth, async (req, res) => {
     try {
-        console.log("---------------------------------------");
-        console.log("📥 SENIOR DASHBOARD: Fetching data for:", req.user.id);
+        console.log("📥 Student Dashboard Request by:", req.user.id);
 
-        // 1. Check if User ID exists
-        if (!req.user || !req.user.id) {
-            console.log("❌ Error: No User ID in Request");
-            return res.status(401).json({ msg: "User not authorized" });
-        }
+        // 🔥 User Model Load
+        let User;
+        try { User = mongoose.model('User'); } catch(e) { User = require('../models/User'); }
 
-        // 2. Query Database (Without Populate First - Safety Check)
-        // Hum check kar rahe hain ki 'mentor' field match ho rahi hai ya nahi
-        const rawBookings = await Booking.find({ mentor: req.user.id });
-        console.log(`🔎 Found ${rawBookings.length} raw bookings matching mentor ID.`);
+        // 🔍 Query: Find bookings for this student
+        const bookings = await Booking.find({ student: req.user.id })
+            .populate({ path: 'mentor', model: User, select: 'name email avatar mobileNumber' })
+            .sort({ createdAt: -1 });
 
-        if (rawBookings.length === 0) {
-            return res.json([]); // Agar booking hi nahi hai to turant khali list bhejo
-        }
+        console.log(`✅ Found ${bookings.length} bookings for student.`);
 
-        // 3. Main Query with Populate
-        // .lean() use kar rahe hain taaki Mongoose ka heavy wrapper hat jaye aur fast ho
-        const bookings = await Booking.find({ mentor: req.user.id })
-            .populate({
-                path: 'student',
-                select: 'name email avatar', // Sirf ye fields lao
-                model: 'User' // 🔥 Force Mongoose to use 'User' model
-            })
-            .sort({ createdAt: -1 })
-            .lean(); 
-
-        // 4. Safe Data Processing (Crash Proofing)
         const safeBookings = bookings.map(b => {
-            // Agar Student null hai (Delete ho gaya), to Code phatne ke bajaye ye object use karega
-            const studentData = b.student || { 
-                name: "Student (Deleted/Unknown)", 
-                email: "N/A", 
-                avatar: "" 
-            };
+            const obj = b.toObject();
+            
+            // 🛡️ Safety: अगर मेंटर डिलीट हो गया है
+            if (!obj.mentor) {
+                obj.mentor = { _id: "unknown", name: "Senior (Profile Unavailable)", avatar: "" };
+            }
 
-            return {
-                _id: b._id,
-                student: studentData,
-                mentor: b.mentor, // ID hi rehne do
-                status: b.status || 'pending',
-                scheduledDate: b.scheduledDate || b.createdAt,
-                startTime: b.startTime || "Flexible",
-                dispute_status: b.dispute_status || null,
-                dispute_reason: b.dispute_reason || null
-            };
+            // 🛡️ Date Fix
+            if (!obj.scheduledDate) {
+                obj.scheduledDate = obj.createdAt;
+                obj.startTime = "Flexible";
+            }
+
+            // 🟢 STATUS FIX: सब कुछ lowercase में भेजें ताकि फ्रंटएंड कंफ्यूज न हो
+            if (obj.status) obj.status = obj.status.toLowerCase();
+
+            return obj;
         });
 
-        console.log(`✅ Sending ${safeBookings.length} bookings to frontend.`);
         res.json(safeBookings);
 
     } catch (err) {
-        console.error("❌ FATAL 500 ERROR in /senior/my:", err);
-        
-        // Agar Database connection issue hai ya code phat gaya, 
-        // to bhi Frontend ko 500 mat bhejo, empty list bhejo taaki page load ho sake.
-        res.status(200).json([]); 
+        console.error("❌ STUDENT ROUTE ERROR:", err.message);
+        res.status(200).json([]); // Crash रोकने के लिए खाली लिस्ट
     }
 });
 
 // =========================================================
-// 🎓 GET STUDENT BOOKINGS (Keeping logic safe)
+// 👨‍🏫 2. GET SENIOR BOOKINGS (Final Fix)
 // =========================================================
-router.get('/student/my', auth, async (req, res) => {
+router.get('/senior/my', auth, async (req, res) => {
     try {
-        const bookings = await Booking.find({ student: req.user.id })
-            .populate({ path: 'mentor', select: 'name email avatar', model: 'User' })
-            .sort({ createdAt: -1 })
-            .lean();
+        console.log("📥 Senior Dashboard Request by:", req.user.id);
 
-        const safeBookings = bookings.map(b => ({
-            ...b,
-            mentor: b.mentor || { name: "Senior (Unknown)", avatar: "" },
-            scheduledDate: b.scheduledDate || b.createdAt,
-            startTime: b.startTime || "Flexible"
-        }));
+        let User;
+        try { User = mongoose.model('User'); } catch(e) { User = require('../models/User'); }
+
+        const bookings = await Booking.find({ mentor: req.user.id })
+            .populate({ path: 'student', model: User, select: 'name email avatar' })
+            .sort({ createdAt: -1 });
+
+        console.log(`✅ Found ${bookings.length} bookings for senior.`);
+
+        const safeBookings = bookings.map(b => {
+            const obj = b.toObject();
+            if (!obj.student) obj.student = { _id: "unknown", name: "Student (Deleted)", avatar: "" };
+            if (!obj.scheduledDate) { obj.scheduledDate = obj.createdAt; obj.startTime = "Flexible"; }
+            if (obj.status) obj.status = obj.status.toLowerCase();
+            return obj;
+        });
 
         res.json(safeBookings);
+
     } catch (err) {
-        console.error("❌ STUDENT ERROR:", err.message);
-        res.status(200).json([]);
+        console.error("❌ SENIOR ROUTE ERROR:", err.message);
+        res.status(200).json([]); 
+    }
+});
+
+// Mark Complete Route (Senior ke liye)
+router.put('/mark-complete/:id', auth, async (req, res) => {
+    try {
+        let booking = await Booking.findById(req.params.id);
+        if (!booking) return res.status(404).json({ msg: 'Booking not found' });
+
+        // Check if user is the mentor
+        if (booking.mentor.toString() !== req.user.id) {
+            return res.status(401).json({ msg: 'Not authorized' });
+        }
+
+        booking.status = 'completed';
+        await booking.save();
+        res.json(booking);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
     }
 });
 
