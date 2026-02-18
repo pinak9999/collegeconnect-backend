@@ -1,73 +1,99 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const isAdmin = require('../middleware/isAdmin');
+const Dispute = require('../models/Dispute');
+// 🟢 FIX: Models ko sahi se import karna zaroori hai
 const Booking = require('../models/Booking');
-const User = require('../models/User');
-const sendEmail = require('../config/email'); // 1. ('Email' (ईमेल) (ईमेल) 'हेल्पर' (helper) (helper) 'इम्पोर्ट' (import) (आयात) करें)
+const User = require('../models/User'); 
+// 🟢 EMAIL: Email helper import (agar aapke paas hai)
+// Agar file nahi hai to ise comment kar dein filhal
+const sendEmail = require('../config/email'); 
 
-// (Student: Raise Dispute)
+// 1. Raise a Dispute (Student Side)
 router.post('/raise/:bookingId', auth, async (req, res) => {
-    const { reasonId } = req.body;
     try {
-        const booking = await Booking.findById(req.params.bookingId)
-            .populate('student', 'name email')
-            .populate('senior', 'name email');
-            
-        if (!booking) return res.status(404).json({ msg: 'Booking not found' });
-        if (booking.student._id.toString() !== req.user.id) return res.status(401).json({ msg: 'Not authorized' });
+        const { reason, description } = req.body;
+        const bookingId = req.params.bookingId;
 
-        booking.dispute_status = 'Pending';
-        booking.dispute_reason = reasonId; 
-        await booking.save();
-        
-        // --- (2. 'नया' (New) 'अपडेट' (Update): 'Admin' (एडमिन) (एडमिन) 'को' (to) 'Email' (ईमेल) (ईमेल) 'भेजें' (Send)!) ---
+        console.log(`🔥 Raising Dispute for Booking: ${bookingId}`);
+        console.log(`👤 User: ${req.user.id}`);
+
+        // 1. Check if Booking exists
+        // 🟢 FIX: 'mentor' populate karein ('senior' nahi)
+        const booking = await Booking.findById(bookingId)
+            .populate('student', 'name email')
+            .populate('mentor', 'name email'); 
+
+        if (!booking) {
+            console.log("❌ Booking not found");
+            return res.status(404).json({ msg: 'Booking not found' });
+        }
+
+        // 2. Check Permissions (Sirf wahi user dispute kar sakta hai jo booking mein hai)
+        if (booking.student._id.toString() !== req.user.id && booking.mentor._id.toString() !== req.user.id) {
+            console.log("❌ Unauthorized User");
+            return res.status(401).json({ msg: 'Not authorized' });
+        }
+
+        // 3. Check if Dispute already exists
+        const existingDispute = await Dispute.findOne({ booking: bookingId });
+        if (existingDispute) {
+            console.log("⚠️ Dispute already exists");
+            return res.status(400).json({ msg: 'Dispute already raised for this booking' });
+        }
+
+        // 4. Create Dispute
+        const newDispute = new Dispute({
+            booking: bookingId,
+            raisedBy: req.user.id,
+            // Automatically determine raisedAgainst
+            raisedAgainst: (booking.student._id.toString() === req.user.id) ? booking.mentor._id : booking.student._id,
+            reason: reason || "Other",
+            description: description || "No description provided",
+            status: 'open'
+        });
+
+        await newDispute.save();
+        console.log("✅ Dispute Raised Successfully");
+
+        // 5. Send Email Notification (Optional & Safe)
         try {
-            // (हम 'मान' (assuming) 'रहे' (are) 'हैं' (हैं) 'कि' (that) 'Admin' (एडमिन) (एडमिन) 'ईमेल' (email) (ईमेल) 'यह' (this) 'है' (is))
-            const ADMIN_EMAIL = 'YOUR_ADMIN_EMAIL@gmail.com'; // (!! इसे 'बदलें' (Change) !!)
-            await sendEmail(
-                ADMIN_EMAIL,
-                'NEW DISPUTE RAISED!',
-                `<h3>A new dispute has been raised.</h3>
-                 <p>Student: ${booking.student.name} (${booking.student.email})</p>
-                 <p>Senior: ${booking.senior.name} (${booking.senior.email})</p>
-                 <p>Booking ID: ${booking._id}</p>
-                 <p>Reason: (Reason ID: ${reasonId})</p>
-                 <p>Please login to your Admin Dashboard to resolve.</p>`
-            );
-        } catch (emailErr) { console.error("Dispute (विवाद) 'ईमेल' (email) (ईमेल) 'एरर' (error) (त्रुटि):", emailErr); }
-        // --- (अपडेट (Update) खत्म) ---
-        
-        res.json(booking);
-    } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
+            const ADMIN_EMAIL = 'admin@collegeconnect.com'; // Apna admin email yahan dalein
+            if (sendEmail) {
+                await sendEmail(
+                    ADMIN_EMAIL,
+                    '🚨 NEW DISPUTE RAISED',
+                    `<h3>A new dispute has been raised.</h3>
+                     <p><strong>Booking ID:</strong> ${booking._id}</p>
+                     <p><strong>Raised By:</strong> ${req.user.id}</p>
+                     <p><strong>Reason:</strong> ${reason}</p>
+                     <p>Please check Admin Dashboard.</p>`
+                );
+                console.log("📧 Admin Notified via Email");
+            }
+        } catch (emailErr) {
+            console.error("⚠️ Email Sending Failed (Non-critical):", emailErr.message);
+        }
+
+        res.json(newDispute);
+
+    } catch (err) {
+        console.error("❌ DISPUTE ERROR:", err.message);
+        res.status(500).send('Server Error');
+    }
 });
 
-// (Admin: Resolve Dispute)
-router.put('/resolve/:bookingId', isAdmin, async (req, res) => {
+// 2. Get My Disputes
+router.get('/my', auth, async (req, res) => {
     try {
-        const booking = await Booking.findById(req.params.bookingId)
-            .populate('student', 'email'); // (हमें 'Student' (छात्र) (छात्र) 'का' (of) 'ईमेल' (email) (ईमेल) 'चाहिए' (need))
-            
-        if (!booking) return res.status(404).json({ msg: 'Booking not found' });
-        
-        booking.dispute_status = 'Resolved';
-        await booking.save();
-        
-        // --- (3. 'नया' (New) 'अपडेट' (Update): 'Student' (छात्र) (छात्र) 'को' (to) 'Email' (ईमेल) (ईमेल) 'भेजें' (Send)!) ---
-        try {
-            await sendEmail(
-                booking.student.email,
-                'Your Dispute has been Resolved',
-                `<h3>Your Dispute is Resolved</h3>
-                 <p>Your dispute for Booking ID ${booking._id} has been reviewed and marked as 'Resolved' by the Admin.</p>
-                 <p>If you still have issues, please contact support.</p>`
-            );
-        } catch (emailErr) { console.error("Resolve (सुलझाएँ) 'ईमेल' (email) (ईमेल) 'एरर' (error) (त्रुटि):", emailErr); }
-        // --- (अपडेट (Update) खत्म) ---
-
-        const updatedBooking = await Booking.findById(req.params.bookingId).populate('dispute_reason', 'reason');
-        res.json({ msg: 'Dispute marked as Resolved.', booking: updatedBooking });
-    } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
+        const disputes = await Dispute.find({ raisedBy: req.user.id })
+            .populate('booking')
+            .sort({ createdAt: -1 });
+        res.json(disputes);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
 });
 
 module.exports = router;
