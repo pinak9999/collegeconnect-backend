@@ -36,7 +36,7 @@ router.get('/student/my', auth, async (req, res) => {
 });
 
 // (GET /senior/my) - Fetch bookings for the logged-in senior
-// FIX: Added robust mapping and consistent populate logic
+// FIX: Added robust mapping, error handling, and consistent populate logic
 router.get('/senior/my', auth, async (req, res) => {
     try {
         // Ensure req.user.id exists
@@ -49,7 +49,7 @@ router.get('/senior/my', auth, async (req, res) => {
             .populate('dispute_reason', 'reason')
             .populate({
                 path: 'profile', 
-                select: 'college tags year',
+                select: 'college tags year avatar', // Added avatar for consistency
                 populate: [ 
                     { path: 'college', select: 'name' }, 
                     { path: 'tags', select: 'name' } 
@@ -60,18 +60,18 @@ router.get('/senior/my', auth, async (req, res) => {
         // FIX: Map to object to ensure serialization works perfectly and matches frontend expectations
         const bookingsSafe = bookings.map(b => {
             const bookingObject = b.toObject();
-            // Ensure student object exists to prevent frontend crashes
+            // Ensure student object exists to prevent frontend crashes if user is deleted
             if (!bookingObject.student) {
                 bookingObject.student = { name: "Unknown User", email: "N/A" };
             }
-            // Add rated flag for consistency, though primarily for students
+            // Add rated flag for consistency
             bookingObject.rated = !!bookingObject.rating;
             return bookingObject;
         });
 
         res.json(bookingsSafe);
     } catch (err) { 
-        console.error("Error in /senior/my:", err); 
+        console.error("Error in /senior/my:", err.message); 
         res.status(500).send('Server Error'); 
     }
 });
@@ -128,10 +128,19 @@ router.put('/mark-complete/:bookingId', auth, async (req, res) => {
             .populate('student', 'name email mobileNumber _id')
             .populate('dispute_reason', 'reason')
             .populate({
-                path: 'profile', select: 'college tags year',
+                path: 'profile', select: 'college tags year avatar', // Added avatar
                 populate: [ { path: 'college', select: 'name' }, { path: 'tags', select: 'name' } ]
             });
-        res.json(updatedBooking);
+            
+        // Convert to object and add 'rated' property to match /senior/my structure
+        // This ensures the frontend update doesn't break consistency
+        const bookingObject = updatedBooking.toObject();
+        if (!bookingObject.student) {
+            bookingObject.student = { name: "Unknown User", email: "N/A" };
+        }
+        bookingObject.rated = !!bookingObject.rating;
+        
+        res.json(bookingObject);
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
