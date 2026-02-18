@@ -6,14 +6,14 @@ const BookingSchema = new Schema({
     // Student jisne book kiya hai
     student: { 
         type: Schema.Types.ObjectId, 
-        ref: 'user', 
+        ref: 'user', // Must match mongoose.model('user')
         required: true,
-        index: true // Searching tez karne ke liye
+        index: true 
     },
     // Senior jiske saath booking hui hai
     senior: { 
         type: Schema.Types.ObjectId, 
-        ref: 'user', 
+        ref: 'user', // Must match mongoose.model('user')
         required: true,
         index: true 
     },
@@ -21,11 +21,10 @@ const BookingSchema = new Schema({
     // Senior profile reference
     profile: { 
         type: Schema.Types.ObjectId, 
-        ref: 'profile' 
+        ref: 'profile' // Must match mongoose.model('profile')
     },
 
     // ⏰ Meeting Time
-    // Actual meeting ka samay
     slot_time: { 
         type: Date, 
         required: true 
@@ -36,11 +35,10 @@ const BookingSchema = new Schema({
         type: Number, 
         required: true 
     },
-    // Razorpay transaction tracking ke liye
     razorpay_payment_id: { 
         type: String, 
         required: true,
-        unique: true // Duplicate payments rokne ke liye
+        unique: true 
     },
     razorpay_order_id: { 
         type: String 
@@ -63,7 +61,8 @@ const BookingSchema = new Schema({
     rating: { 
         type: Number, 
         min: 1, 
-        max: 5 
+        max: 5,
+        default: 0 
     },
     review_text: { 
         type: String 
@@ -84,7 +83,10 @@ const BookingSchema = new Schema({
     },
     dispute_reason: {
         type: Schema.Types.ObjectId,
-        ref: 'disputereason'
+        ref: 'disputereason' // Must match mongoose.model('disputereason')
+    },
+    dispute_comment: {
+        type: String
     },
 
     // 🔗 Meeting Info
@@ -101,7 +103,7 @@ const BookingSchema = new Schema({
     // ⚙️ System Flags
     auto_status: {
         type: Boolean,
-        default: true  // Auto-approved system
+        default: true
     },
 
     // Creation date
@@ -109,6 +111,6 @@ const BookingSchema = new Schema({
         type: Date, 
         default: Date.now 
     }
-}, { timestamps: true }); // createdAt aur updatedAt apne aap handle honge
+}, { timestamps: true });
 
 module.exports = mongoose.model('booking', BookingSchema);
