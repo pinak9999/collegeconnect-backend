@@ -3,8 +3,7 @@
 // Chat + Video Call + Mongo + Socket.io
 // ========================================
 // server.js mein DB connect ke baad ye hona chahiye:
-require('./models/User');
-require('./models/Booking');
+
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
