@@ -1,34 +1,68 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const BookingSchema = new mongoose.Schema({
-  student: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // 🔥 Must match 'User' from Step 1
-    required: true
-  },
-  mentor: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User', // 🔥 Must match 'User' from Step 1
-    required: true
-  },
-  // Senior/Mentor dono same hain, lekin hum code mein 'mentor' use kar rahe hain
-  // Agar database mein 'senior' naam se column hai to wo error dega. 
-  // Isliye humne ye Model simple rakha hai.
-  
-  status: {
-    type: String,
-    enum: ['pending', 'confirmed', 'cancelled', 'completed'],
-    default: 'confirmed'
-  },
-  topic: { type: String, default: "Mentorship Session" },
-  scheduledDate: { type: Date }, 
-  startTime: { type: String },
-  
-  dispute_status: { type: String }, // Dispute ke liye field
-  dispute_reason: { type: Object }, // Object rakh rahe hain taaki error na aye
+const BookingSchema = new Schema({
+    // 🔥 Core Users
+    student: { type: Schema.Types.ObjectId, ref: 'user', required: true },
+    senior: { type: Schema.Types.ObjectId, ref: 'user', required: true },
 
-  payment_id: { type: String },
-  createdAt: { type: Date, default: Date.now }
+    // Senior profile reference
+    profile: { type: Schema.Types.ObjectId, ref: 'profile' },
+
+    // 🔥 Meeting Time (IMPORTANT)
+    slot_time: { type: Date, required: true },   // Meeting time
+
+    // Payment Details
+    amount_paid: { type: Number, required: true },
+    razorpay_payment_id: { type: String, required: true },
+
+    // 🔥 Status for Auto-Approved Meetings
+    status: {
+        type: String,
+        enum: [
+            'Confirmed',          // auto-approved
+            'Completed',
+            'Cancelled (Refunded)',
+            'Missed',             // ⬅️ new for call scheduling
+            'Rejected'            // ⬅️ future use
+        ],
+        default: 'Confirmed'
+    },
+
+    // Rating System
+    rating: { type: Number, min: 1, max: 5 },
+    review_text: { type: String },
+
+    // Payment → senior payout
+    payout_status: { type: String, enum: ['Unpaid', 'Paid'], default: 'Unpaid' },
+
+    // Dispute Handling
+    dispute_status: { type: String, enum: ['None', 'Pending', 'Resolved'], default: 'None' },
+    dispute_reason: {
+        type: Schema.Types.ObjectId,
+        ref: 'disputereason'
+    },
+
+    // 🔥 Meeting Link (NEW)
+    meeting_link: {
+        type: String,
+        default: ""
+    },
+
+    // 🔥 Meeting Join Info (NEW)
+    join_status: {
+        type: String,
+        enum: ['NotJoined', 'Joined', 'LateJoined'],
+        default: 'NotJoined'
+    },
+
+    // 🔥 Auto Meeting Time Tracking (NEW)
+    auto_status: {
+        type: Boolean,
+        default: true  // Means auto-approved system
+    },
+
+    date: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Booking', BookingSchema);
+module.exports = Booking = mongoose.model('booking', BookingSchema);

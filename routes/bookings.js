@@ -1,116 +1,112 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
 const auth = require('../middleware/auth');
+const isAdmin = require('../middleware/isAdmin');
+const Booking = require('../models/Booking');
 
-// 👇 Models को सीधे Memory से उठाना सबसे सुरक्षित है
-const Booking = mongoose.model('Booking');
-
-// =========================================================
-// 🎓 1. GET STUDENT BOOKINGS (Final Fix)
-// =========================================================
+// (GET /student/my) (वही है, 'populate' (पॉप्युलेट) (आबाद) 'फिक्स' (fix) (ठीक) 'के' (of) 'साथ' (with))
 router.get('/student/my', auth, async (req, res) => {
-    try {
-        console.log("📥 Student Dashboard Request by:", req.user.id);
+    try {
+        const bookings = await Booking.find({ student: req.user.id })
+            .populate('senior', 'name email') 
+            .populate('dispute_reason', 'reason') 
+            .populate({
+                path: 'profile', select: 'college tags year', 
+                populate: [ { path: 'college', select: 'name' }, { path: 'tags', select: 'name' } ]
+            })
+            .sort({ slot_time: -1 });
 
-        let User;
-        try { User = mongoose.model('User'); } catch(e) { User = require('../models/User'); }
+        // 🚀 BOLD: बग फिक्स यहीं से शुरू होता है
+        // फ्रंटएंड `rated` (boolean) फ़ील्ड की उम्मीद कर रहा है।
+        // हम Mongoose दस्तावेज़ों को सादे जावास्क्रिप्ट ऑब्जेक्ट में बदल देंगे
+        // ताकि हम `rated` फ़ील्ड जोड़ सकें।
+        const bookingsWithRatedStatus = bookings.map(b => {
+            const bookingObject = b.toObject(); // .toObject() Mongoose दस्तावेज़ को JS ऑब्जेक्ट में बदलता है
+            
+            // अगर `rating` फ़ील्ड मौजूद है (undefined, null, या 0 नहीं है),
+            // तो `rated: true` सेट करें, वरना `rated: false` सेट करें।
+            bookingObject.rated = !!bookingObject.rating; 
+            
+            return bookingObject;
+        });
+        // 🚀 BOLD: बग फिक्स यहाँ खत्म होता है
 
-        const bookings = await Booking.find({ student: req.user.id })
-            .populate({ path: 'mentor', model: User, select: 'name email avatar mobileNumber' })
-            .sort({ createdAt: -1 });
+        // मूल `bookings` ऐरे की जगह अपडेटेड ऐरे भेजें
+        res.json(bookingsWithRatedStatus);
+        // 🚀 BOLD: (पहले यह `res.json(bookings);` था)
 
-        const safeBookings = bookings.map(b => {
-            const obj = b.toObject();
-            if (!obj.mentor) {
-                obj.mentor = { _id: "unknown", name: "Senior (Profile Unavailable)", avatar: "https://via.placeholder.com/60" };
-            }
-            if (!obj.scheduledDate) {
-                obj.scheduledDate = obj.createdAt;
-                obj.startTime = "Flexible";
-            }
-            if (obj.status) obj.status = obj.status.toLowerCase();
-            return obj;
-        });
-
-        res.json(safeBookings);
-
-    } catch (err) {
-        console.error("❌ STUDENT ROUTE ERROR:", err.message);
-        res.status(200).json([]); 
-    }
+    } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
-// =========================================================
-// 👨‍🏫 2. GET SENIOR BOOKINGS (Final Fix - Real Data)
-// =========================================================
+// (GET /senior/my) (वही है, 'populate' (पॉप्युलेट) (आबाद) 'फिक्स' (fix) (ठीक) 'के' (of) 'साथ' (with))
 router.get('/senior/my', auth, async (req, res) => {
-    try {
-        console.log("📥 Senior Dashboard Request by:", req.user.id);
-
-        // 🔥 User Model Load
-        let User;
-        try { User = mongoose.model('User'); } catch(e) { User = require('../models/User'); }
-
-        // 🔍 Query: Find bookings + POPULATE Student Data
-        const bookings = await Booking.find({ mentor: req.user.id })
-            .populate({ path: 'student', model: User, select: 'name email avatar' }) // 👈 असली डेटा लाओ
-            .sort({ createdAt: -1 });
-
-        console.log(`✅ Found ${bookings.length} bookings for senior.`);
-
-        const safeBookings = bookings.map(b => {
-            const obj = b.toObject();
-            
-            // 🛡️ Safety: अगर स्टूडेंट डिलीट हो गया
-            if (!obj.student) {
-                obj.student = { 
-                    _id: "unknown", 
-                    name: "Student (Deleted/Unknown)", 
-                    email: "N/A", 
-                    avatar: "https://via.placeholder.com/60" 
-                };
-            }
-
-            // 🛡️ Date Fix
-            if (!obj.scheduledDate) {
-                obj.scheduledDate = obj.createdAt;
-                obj.startTime = "Flexible";
-            }
-            
-            // 🟢 STATUS FIX
-            if (obj.status) obj.status = obj.status.toLowerCase();
-            
-            return obj;
-        });
-
-        res.json(safeBookings);
-
-    } catch (err) {
-        console.error("❌ SENIOR ROUTE ERROR:", err.message);
-        res.status(200).json([]); 
-    }
+    try {
+        const bookings = await Booking.find({ senior: req.user.id })
+            .populate('student', 'name email mobileNumber _id')
+            .populate('dispute_reason', 'reason')
+            .populate({
+                path: 'profile', select: 'college tags year',
+                populate: [ { path: 'college', select: 'name' }, { path: 'tags', select: 'name' } ]
+            })
+            .sort({ slot_time: -1 });
+        res.json(bookings);
+    } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
-// =========================================================
-// ✅ 3. MARK COMPLETE
-// =========================================================
-router.put('/mark-complete/:id', auth, async (req, res) => {
-    try {
-        let booking = await Booking.findById(req.params.id);
-        if (!booking) return res.status(404).json({ msg: 'Booking not found' });
+/**
+ * @route   GET /api/bookings/admin/all
+ * @desc    Get *ALL* bookings (Admin Only) (WITH PAGINATION)
+ * @access  Private (isAdmin)
+ */
+// --- (यह 'नया' (New) 'अपडेट' (Update) है: 'Pagination' (पेजिनेशन) (पृष्ठांकन)) ---
+router.get('/admin/all', isAdmin, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page || '1');
+        const limit = parseInt(req.query.limit || '10');
+        const skip = (page - 1) * limit;
 
-        if (booking.mentor.toString() !== req.user.id) {
-            return res.status(401).json({ msg: 'Not authorized' });
-        }
+        const bookings = await Booking.find()
+            .populate('student', 'name mobileNumber _id') 
+            .populate('senior', 'name mobileNumber') 
+            .populate('dispute_reason', 'reason') 
+            .populate({
+                path: 'profile', select: 'college tags year',
+                populate: [ { path: 'college', select: 'name' }, { path: 'tags', select: 'name' } ]
+            })
+            .sort({ date: -1 })
+            .limit(limit)
+            .skip(skip);
+        
+        const totalBookings = await Booking.countDocuments();
+        
+        res.json({
+            bookings: bookings,
+            totalBookings: totalBookings,
+            currentPage: page,
+            totalPages: Math.ceil(totalBookings / limit)
+        });
+    } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
+});
+// --- (अपडेट (Update) खत्म) ---
 
-        booking.status = 'completed';
-        await booking.save();
-        res.json(booking);
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
-    }
+// (Mark Complete (मार्क कंप्लीट) (वही है))
+router.put('/mark-complete/:bookingId', auth, async (req, res) => {
+    try {
+        let booking = await Booking.findById(req.params.bookingId);
+        if (!booking) return res.status(404).json({ msg: 'Booking not found' });
+        if (booking.senior.toString() !== req.user.id) return res.status(401).json({ msg: 'Not authorized' });
+        booking.status = 'Completed';
+        await booking.save();
+        
+        const updatedBooking = await Booking.findById(req.params.bookingId)
+            .populate('student', 'name email mobileNumber _id')
+            .populate('dispute_reason', 'reason')
+            .populate({
+                path: 'profile', select: 'college tags year',
+                populate: [ { path: 'college', select: 'name' }, { path: 'tags', select: 'name' } ]
+            });
+        res.json(updatedBooking);
+    } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
 module.exports = router;
