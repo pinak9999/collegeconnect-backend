@@ -1,44 +1,34 @@
 const mongoose = require('mongoose');
 
-const bookingSchema = new mongoose.Schema({
+const BookingSchema = new mongoose.Schema({
   student: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'User', // 🔥 Must match 'User' from Step 1
     required: true
   },
   mentor: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'User', // 🔥 Must match 'User' from Step 1
     required: true
   },
+  // Senior/Mentor dono same hain, lekin hum code mein 'mentor' use kar rahe hain
+  // Agar database mein 'senior' naam se column hai to wo error dega. 
+  // Isliye humne ye Model simple rakha hai.
+  
   status: {
     type: String,
     enum: ['pending', 'confirmed', 'cancelled', 'completed'],
-    default: 'confirmed' // 🟢 सीधे कन्फर्म रखें क्योंकि डेट का झंझट नहीं है
+    default: 'confirmed'
   },
-  topic: { 
-    type: String, 
-    default: "Mentorship Session" 
-  },
+  topic: { type: String, default: "Mentorship Session" },
+  scheduledDate: { type: Date }, 
+  startTime: { type: String },
   
-  // --- 🚀 Simplified Fields (No longer required) ---
-  // यूज़र को अब ये चुनने की ज़रूरत नहीं, बैकएंड में एरर नहीं आएगा
-  scheduledDate: { 
-    type: Date 
-  },
-  startTime: { 
-    type: String 
-  },
-  endTime: { 
-    type: String 
-  },
-  meetingLink: { 
-    type: String, 
-    default: () => `room-${Date.now()}` 
-  },
-  
-  payment_id: { type: String }, // पेमेंट ट्रैक करने के लिए
+  dispute_status: { type: String }, // Dispute ke liye field
+  dispute_reason: { type: Object }, // Object rakh rahe hain taaki error na aye
+
+  payment_id: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('Booking', bookingSchema);
+module.exports = mongoose.model('Booking', BookingSchema);
