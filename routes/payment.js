@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 
-// --- 🛡️ Security Tip: Keys ko hamesha .env file mein rakhein ---
+// --- 🛡️ Security Tip: Always use environment variables in production ---
 const RAZORPAY_KEY_ID = 'rzp_test_RbhIpPvOLS2KkF'; 
 const RAZORPAY_KEY_SECRET = 'bWmPpwl6WLu4M8Ifdr0LZ2lP'; 
 
@@ -16,14 +16,14 @@ const instance = new Razorpay({
 
 /**
  * @route   POST /api/payment/order
- * @desc    Razorpay Order Create karna
+ * @desc    Create Razorpay Order
  */
 router.post('/order', auth, async (req, res) => {
     try {
         const { amount } = req.body;
         
         const options = {
-            amount: Math.round((amount || 500) * 100), // Rupee to Paise conversion
+            amount: Math.round((amount || 500) * 100), // Rupee to Paise
             currency: "INR",
             receipt: `rcpt_${Date.now()}`,
         };
@@ -38,7 +38,7 @@ router.post('/order', auth, async (req, res) => {
 
 /**
  * @route   POST /api/payment/verify
- * @desc    Payment Verify karna aur Booking Save karna
+ * @desc    Verify Payment and Save Booking
  */
 router.post('/verify', auth, async (req, res) => {
     try {
@@ -49,33 +49,32 @@ router.post('/verify', auth, async (req, res) => {
             bookingDetails 
         } = req.body;
 
-        // 1. 🛡️ Signature Verification (Razorpay Security)
+        // 1. 🛡️ Signature Verification
         const body = razorpay_order_id + "|" + razorpay_payment_id;
         const expectedSignature = crypto
             .createHmac("sha256", RAZORPAY_KEY_SECRET)
             .update(body.toString())
             .digest("hex");
 
-        const isSignatureValid = expectedSignature === razorpay_signature;
-
-        if (!isSignatureValid) {
+        if (expectedSignature !== razorpay_signature) {
             console.error("❌ Signature Mismatch!");
             return res.status(400).json({ success: false, msg: "Payment verification failed" });
         }
 
         console.log("✅ Signature Matched! Saving Booking...");
 
-        // 2. 💾 Database mein Save karein
-        // Ensure karein ki 'Booking' model ki fields aur ye object matches ho
+        // 2. 💾 Save Booking with Strict Field Mapping
         const newBooking = new Booking({
-            student: req.user.id,                    // auth middleware se user ID
-            senior: bookingDetails.senior,           // Frontend se senior ki ID
-            profile: bookingDetails.profileId,       // Frontend se profile reference
+            student: req.user.id,                    // From auth middleware (confirmed student ID)
+            senior: bookingDetails.senior,           // Explicitly mapping senior ID
+            profile: bookingDetails.profileId,       // Explicitly mapping profile ID
             slot_time: bookingDetails.slot_time || new Date(),
-            amount_paid: bookingDetails.amount,      // Total amount paid
+            amount_paid: bookingDetails.amount,
             razorpay_payment_id: razorpay_payment_id,
-            razorpay_order_id: razorpay_order_id,    // Record keeping ke liye
-            status: 'Confirmed'                      // Payment success hote hi status confirmed
+            razorpay_order_id: razorpay_order_id,
+            status: 'Confirmed',                     // Explicitly setting status
+            payout_status: 'Unpaid',
+            dispute_status: 'None'
         });
 
         const savedBooking = await newBooking.save();
@@ -87,7 +86,6 @@ router.post('/verify', auth, async (req, res) => {
         });
 
     } catch (err) {
-        // Validation ya Database connection error pakadne ke liye
         console.error("❌ Database/Verification Error:", err.message);
         res.status(500).json({ 
             success: false, 
