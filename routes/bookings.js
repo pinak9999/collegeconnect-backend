@@ -4,10 +4,11 @@ const auth = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
 const Booking = require('../models/Booking');
 
-// 🔄 Reusable Populate Logic (Ek jagah change karne par sab sahi ho jaye)
+// 🔄 Reusable Populate Logic
+// Fixed: Explicitly selecting student name and mobileNumber for Senior Dashboard
 const bookingPopulate = [
-    { path: 'student', select: 'name email mobileNumber _id' },
-    { path: 'senior', select: 'name email mobileNumber _id' },
+    { path: 'student', select: 'name email mobileNumber avatar _id' },
+    { path: 'senior', select: 'name email mobileNumber avatar _id' },
     { path: 'dispute_reason', select: 'reason' },
     {
         path: 'profile',
@@ -28,12 +29,11 @@ router.get('/student/my', auth, async (req, res) => {
         const bookings = await Booking.find({ student: req.user.id })
             .populate(bookingPopulate)
             .sort({ slot_time: -1 })
-            .lean(); // Faster performance (returns plain JS objects)
+            .lean(); 
 
-        // 🚀 BOLD: Rated logic integration
         const bookingsWithRatedStatus = bookings.map(b => ({
             ...b,
-            rated: !!b.rating // direct boolean conversion
+            rated: !!b.rating
         }));
 
         res.json(bookingsWithRatedStatus);
@@ -49,9 +49,10 @@ router.get('/student/my', auth, async (req, res) => {
  */
 router.get('/senior/my', auth, async (req, res) => {
     try {
+        // Fix: Ensure we are finding bookings where the 'senior' field matches logged in user
         const bookings = await Booking.find({ senior: req.user.id })
             .populate(bookingPopulate)
-            .sort({ slot_time: -1 });
+            .sort({ slot_time: -1 }); // Newest first
             
         res.json(bookings);
     } catch (err) {
@@ -100,9 +101,9 @@ router.put('/mark-complete/:bookingId', auth, async (req, res) => {
         
         if (!booking) return res.status(404).json({ msg: 'Booking not found' });
         
-        // Authorization check
+        // Authorization check: Ensure the logged-in user is the senior of this booking
         if (booking.senior.toString() !== req.user.id) {
-            return res.status(401).json({ msg: 'Not authorized' });
+            return res.status(401).json({ msg: 'Not authorized to update this booking' });
         }
 
         booking.status = 'Completed';
