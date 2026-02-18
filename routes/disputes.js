@@ -1,75 +1,80 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middleware/auth');
-const Dispute = require('../models/Dispute'); // स्टेप 1 वाली फाइल
-const Booking = require('../models/Booking'); // आपका बुकिंग मॉडल
-const User = require('../models/User'); 
+const Booking = require('../models/Booking');
+const DisputeReason = require('../models/DisputeReason');
 
-// 1. Raise a Dispute
-router.post('/raise/:bookingId', auth, async (req, res) => {
+// @route   GET /api/disputes/reasons
+// @desc    Get all dispute reasons
+router.get('/reasons', auth, async (req, res) => {
     try {
-        // फ्रंटएंड से reason या description लें
-        const { reason, description } = req.body;
-        const bookingId = req.params.bookingId;
-
-        console.log(`🔥 Raising Dispute for Booking: ${bookingId}`);
-
-        // 1. बुकिंग ढूँढें (populate हटा दिया है ताकि क्रैश न हो)
-        const booking = await Booking.findById(bookingId);
-
-        if (!booking) {
-            return res.status(404).json({ msg: 'Booking not found' });
+        // Seed default reasons if none exist
+        const count = await DisputeReason.countDocuments();
+        if (count === 0) {
+             await DisputeReason.insertMany([
+                 { reason: "Senior didn't show up" },
+                 { reason: "Senior was rude/unprofessional" },
+                 { reason: "Session ended too early" },
+                 { reason: "Technical issues prevented session" },
+                 { reason: "Other" }
+             ]);
         }
-
-        // 2. परमिशन चेक करें (सिर्फ Student या Mentor ही डिस्प्यूट कर सकते हैं)
-        const studentId = booking.student.toString();
-        const mentorId = booking.mentor.toString();
-        const userId = req.user.id;
-
-        if (userId !== studentId && userId !== mentorId) {
-            return res.status(401).json({ msg: 'Not authorized' });
-        }
-
-        // 3. चेक करें कि पहले से डिस्प्यूट तो नहीं है
-        const existingDispute = await Dispute.findOne({ booking: bookingId });
-        if (existingDispute) {
-            return res.status(400).json({ msg: 'Dispute already raised for this booking' });
-        }
-
-        // 4. टारगेट सेट करें (किसके खिलाफ शिकायत है?)
-        const targetUser = (userId === studentId) ? mentorId : studentId;
-
-        // 5. डिस्प्यूट सेव करें
-        const newDispute = new Dispute({
-            booking: bookingId,
-            raisedBy: userId,
-            raisedAgainst: targetUser,
-            reason: reason || "General Issue", // अगर रीज़न खाली हो तो डिफ़ॉल्ट
-            description: description || "",
-            status: 'open'
-        });
-
-        await newDispute.save();
-        console.log("✅ Dispute Raised Successfully");
-
-        res.json(newDispute);
-
+        
+        const reasons = await DisputeReason.find();
+        res.json(reasons);
     } catch (err) {
-        console.error("❌ DISPUTE ERROR:", err.message);
-        res.status(500).send('Server Error');
+        console.error("Fetch Reasons Error:", err.message);
+        res.status(500).json({ msg: "Server Error" });
     }
 });
 
-// 2. Get My Disputes
-router.get('/my', auth, async (req, res) => {
+// @route   POST /api/disputes/raise/:bookingId
+// @desc    Raise a dispute for a booking
+router.post('/raise/:bookingId', auth, async (req, res) => {
     try {
-        const disputes = await Dispute.find({ raisedBy: req.user.id })
-            .populate('booking') // बुकिंग डिटेल्स दिखाएं
-            .sort({ createdAt: -1 });
-        res.json(disputes);
+        const { bookingId } = req.params;
+        const { reasonId, comment } = req.body;
+
+        // 1. Validation
+        if (!reasonId) {
+            return res.status(400).json({ msg: "Please select a reason for the dispute." });
+        }
+
+        // 2. Find Booking
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+            return res.status(404).json({ msg: "Booking not found." });
+        }
+
+        // 3. Ownership Check (Only the student can raise a dispute)
+        // Ensure req.user.id matches the student ID on the booking
+        if (booking.student.toString() !== req.user.id) {
+            return res.status(401).json({ msg: "Not authorized to dispute this booking." });
+        }
+
+        // 4. State Check (Prevent double disputes)
+        if (booking.dispute_status !== 'None') {
+             return res.status(400).json({ msg: "Dispute already raised or resolved." });
+        }
+
+        // 5. Update Booking
+        booking.dispute_status = 'Pending';
+        booking.dispute_reason = reasonId; // Saves the ObjectId
+        booking.dispute_comment = comment || "";
+        
+        await booking.save();
+
+        res.json({ success: true, msg: "Dispute raised successfully", booking });
+
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        console.error("Raise Dispute Error:", err.message);
+        
+        // Handle Invalid ObjectId error (e.g. malformed reasonId or bookingId)
+        if (err.kind === 'ObjectId') {
+            return res.status(400).json({ msg: "Invalid ID format provided." });
+        }
+
+        res.status(500).json({ msg: "Server Error", error: err.message });
     }
 });
 
