@@ -4,9 +4,11 @@ const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 const DisputeReason = require('../models/DisputeReason');
 
-// Get all dispute reasons
+// @route   GET /api/disputes/reasons
+// @desc    Get all dispute reasons
 router.get('/reasons', auth, async (req, res) => {
     try {
+        // Seed default reasons if none exist
         const count = await DisputeReason.countDocuments();
         if (count === 0) {
              await DisputeReason.insertMany([
@@ -17,6 +19,7 @@ router.get('/reasons', auth, async (req, res) => {
                  { reason: "Other" }
              ]);
         }
+        
         const reasons = await DisputeReason.find();
         res.json(reasons);
     } catch (err) {
@@ -25,44 +28,52 @@ router.get('/reasons', auth, async (req, res) => {
     }
 });
 
-// Raise a dispute
+// @route   POST /api/disputes/raise/:bookingId
+// @desc    Raise a dispute for a booking
 router.post('/raise/:bookingId', auth, async (req, res) => {
     try {
         const { bookingId } = req.params;
         const { reasonId, comment } = req.body;
 
+        // 1. Validation
         if (!reasonId) {
-            return res.status(400).json({ msg: "Please select a reason." });
+            return res.status(400).json({ msg: "Please select a reason for the dispute." });
         }
 
+        // 2. Find Booking
         const booking = await Booking.findById(bookingId);
         if (!booking) {
             return res.status(404).json({ msg: "Booking not found." });
         }
 
-        // Logic Fix: Strictly check user ID matching
+        // 3. Ownership Check (Only the student can raise a dispute)
+        // Ensure req.user.id matches the student ID on the booking
         if (booking.student.toString() !== req.user.id) {
-            return res.status(401).json({ msg: "Not authorized." });
+            return res.status(401).json({ msg: "Not authorized to dispute this booking." });
         }
 
+        // 4. State Check (Prevent double disputes)
         if (booking.dispute_status !== 'None') {
-             return res.status(400).json({ msg: "Dispute already exists." });
+             return res.status(400).json({ msg: "Dispute already raised or resolved." });
         }
 
-        // Update fields
+        // 5. Update Booking
         booking.dispute_status = 'Pending';
-        booking.dispute_reason = reasonId; 
+        booking.dispute_reason = reasonId; // Saves the ObjectId
         booking.dispute_comment = comment || "";
         
         await booking.save();
-        
-        // Return populated booking for immediate UI update
-        const updatedBooking = await Booking.findById(bookingId).populate('dispute_reason');
 
-        res.json({ success: true, msg: "Dispute raised successfully", booking: updatedBooking });
+        res.json({ success: true, msg: "Dispute raised successfully", booking });
 
     } catch (err) {
         console.error("Raise Dispute Error:", err.message);
+        
+        // Handle Invalid ObjectId error (e.g. malformed reasonId or bookingId)
+        if (err.kind === 'ObjectId') {
+            return res.status(400).json({ msg: "Invalid ID format provided." });
+        }
+
         res.status(500).json({ msg: "Server Error", error: err.message });
     }
 });
