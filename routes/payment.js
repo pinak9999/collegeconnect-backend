@@ -5,9 +5,9 @@ const crypto = require('crypto');
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 
-// 🛡️ Ensure keys are loaded from environment variables
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_RbhIpPvOLS2KkF';
-const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'bWmPpwl6WLu4M8Ifdr0LZ2lP';
+// --- 🛡️ Security Tip: Keys ko hamesha .env file mein rakhein ---
+const RAZORPAY_KEY_ID = 'rzp_test_RbhIpPvOLS2KkF'; 
+const RAZORPAY_KEY_SECRET = 'bWmPpwl6WLu4M8Ifdr0LZ2lP'; 
 
 const instance = new Razorpay({
     key_id: RAZORPAY_KEY_ID,
@@ -16,15 +16,14 @@ const instance = new Razorpay({
 
 /**
  * @route   POST /api/payment/order
- * @desc    Create Razorpay Order
- * @access  Private
+ * @desc    Razorpay Order Create karna
  */
 router.post('/order', auth, async (req, res) => {
     try {
         const { amount } = req.body;
         
         const options = {
-            amount: Math.round((amount || 500) * 100), // Convert to Paise
+            amount: Math.round((amount || 500) * 100), // Rupee to Paise conversion
             currency: "INR",
             receipt: `rcpt_${Date.now()}`,
         };
@@ -39,8 +38,7 @@ router.post('/order', auth, async (req, res) => {
 
 /**
  * @route   POST /api/payment/verify
- * @desc    Verify Payment and Save Booking to Database
- * @access  Private
+ * @desc    Payment Verify karna aur Booking Save karna
  */
 router.post('/verify', auth, async (req, res) => {
     try {
@@ -51,7 +49,7 @@ router.post('/verify', auth, async (req, res) => {
             bookingDetails 
         } = req.body;
 
-        // 1. 🛡️ Signature Verification
+        // 1. 🛡️ Signature Verification (Razorpay Security)
         const body = razorpay_order_id + "|" + razorpay_payment_id;
         const expectedSignature = crypto
             .createHmac("sha256", RAZORPAY_KEY_SECRET)
@@ -65,22 +63,19 @@ router.post('/verify', auth, async (req, res) => {
             return res.status(400).json({ success: false, msg: "Payment verification failed" });
         }
 
-        console.log("✅ Signature Matched! Saving Booking...", bookingDetails);
+        console.log("✅ Signature Matched! Saving Booking...");
 
-        // 2. 💾 Data Mismatch Fix: Map fields correctly to Schema
-        // Schema expects: student, senior, profile, slot_time, amount_paid
+        // 2. 💾 Database mein Save karein
+        // Ensure karein ki 'Booking' model ki fields aur ye object matches ho
         const newBooking = new Booking({
-            student: req.user.id,                     // Auth Middleware provides this
-            senior: bookingDetails.senior,            // Passed from Frontend (ID of the senior user)
-            profile: bookingDetails.profileId,        // Passed from Frontend (ID of the profile)
-            slot_time: new Date(bookingDetails.slot_time), // Ensure Date object
-            amount_paid: bookingDetails.amount,       // Amount passed from Frontend
+            student: req.user.id,                    // auth middleware se user ID
+            senior: bookingDetails.senior,           // Frontend se senior ki ID
+            profile: bookingDetails.profileId,       // Frontend se profile reference
+            slot_time: bookingDetails.slot_time || new Date(),
+            amount_paid: bookingDetails.amount,      // Total amount paid
             razorpay_payment_id: razorpay_payment_id,
-            razorpay_order_id: razorpay_order_id,
-            status: 'Confirmed',                      // Default status
-            payout_status: 'Unpaid',
-            dispute_status: 'None',
-            auto_status: true
+            razorpay_order_id: razorpay_order_id,    // Record keeping ke liye
+            status: 'Confirmed'                      // Payment success hote hi status confirmed
         });
 
         const savedBooking = await newBooking.save();
@@ -92,6 +87,7 @@ router.post('/verify', auth, async (req, res) => {
         });
 
     } catch (err) {
+        // Validation ya Database connection error pakadne ke liye
         console.error("❌ Database/Verification Error:", err.message);
         res.status(500).json({ 
             success: false, 
