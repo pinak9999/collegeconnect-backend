@@ -110,38 +110,60 @@ router.get('/admin/all', isAdmin, async (req, res) => {
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
-// (Mark Complete)
+// ✅ Corrected: Mark Booking as Completed
 router.put('/mark-complete/:bookingId', auth, async (req, res) => {
     try {
+        console.log("👉 Request to mark complete:", req.params.bookingId);
+
+        // 1. Booking ढूँढें
         let booking = await Booking.findById(req.params.bookingId);
-        if (!booking) return res.status(404).json({ msg: 'Booking not found' });
+
+        // 2. चेक करें कि बुकिंग मिली या नहीं
+        if (!booking) {
+            return res.status(404).json({ msg: 'Booking not found' });
+        }
         
-        // Ensure only the assigned senior can mark it complete
+        // 3. चेक करें कि जो यूजर रिक्वेस्ट कर रहा है, वही सीनियर है या नहीं
+        // (Convert to string needed for strict comparison)
         if (booking.senior.toString() !== req.user.id) {
-            return res.status(401).json({ msg: 'Not authorized' });
+            console.log("⛔ Unauthorized: Senior ID mismatch");
+            return res.status(401).json({ msg: 'Not authorized to complete this booking' });
         }
 
-        booking.status = 'Completed';
-        await booking.save();
+        // 4. ✅ Status Update (Small 'c' for consistency with enums)
+        booking.status = 'completed';
         
+        // 5. Save करें
+        await booking.save();
+        console.log("✅ Booking saved as completed.");
+        
+        // 6. Updated Data Fetch करें (Populate के साथ)
+        // ध्यान दें: अगर 'profile' फील्ड Booking मॉडल में नहीं है, तो उसे यहाँ से हटा दिया है ताकि क्रैश न हो।
         const updatedBooking = await Booking.findById(req.params.bookingId)
             .populate('student', 'name email mobileNumber _id')
-            .populate('dispute_reason', 'reason')
-            .populate({
-                path: 'profile', select: 'college tags year avatar', // Added avatar
-                populate: [ { path: 'college', select: 'name' }, { path: 'tags', select: 'name' } ]
-            });
-            
-        // Convert to object and add 'rated' property to match /senior/my structure
-        // This ensures the frontend update doesn't break consistency
+            .populate('dispute_reason', 'reason');
+
+        // 7. रिस्पॉन्स ऑब्जेक्ट तैयार करें
         const bookingObject = updatedBooking.toObject();
+        
+        // Null check (अगर स्टूडेंट डिलीट हो गया हो)
         if (!bookingObject.student) {
             bookingObject.student = { name: "Unknown User", email: "N/A" };
         }
+
+        // Rating flag सेट करें
         bookingObject.rated = !!bookingObject.rating;
         
+        // फ्रंटएंड को भेजें
         res.json(bookingObject);
-    } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
+
+    } catch (err) { 
+        // 🔥 असली एरर यहाँ कंसोल में दिखेगा
+        console.error("🔥 Error in mark-complete route:", err);
+        
+        // Frontend को सही एरर मैसेज भेजें
+        res.status(500).json({ msg: 'Server Error', error: err.message }); 
+    }
 });
 
 module.exports = router;
