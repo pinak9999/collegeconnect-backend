@@ -4,7 +4,9 @@ const auth = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
 const Booking = require('../models/Booking');
 
-// GET /student/my
+// ---------------------------------------------------
+// 1. GET Student Bookings
+// ---------------------------------------------------
 router.get('/student/my', auth, async (req, res) => {
     try {
         const bookings = await Booking.find({ student: req.user.id })
@@ -16,6 +18,7 @@ router.get('/student/my', auth, async (req, res) => {
             })
             .sort({ slot_time: -1 });
 
+        // Rated Logic Fix
         const bookingsWithRatedStatus = bookings.map(b => {
             const bookingObject = b.toObject();
             bookingObject.rated = !!bookingObject.rating;
@@ -23,11 +26,12 @@ router.get('/student/my', auth, async (req, res) => {
         });
 
         res.json(bookingsWithRatedStatus);
-
-    } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
+    } catch (err) { console.error("Student Route Error:", err.message); res.status(500).send('Server Error'); }
 });
 
-// GET /senior/my
+// ---------------------------------------------------
+// 2. GET Senior Bookings
+// ---------------------------------------------------
 router.get('/senior/my', auth, async (req, res) => {
     try {
         const bookings = await Booking.find({ senior: req.user.id })
@@ -39,10 +43,12 @@ router.get('/senior/my', auth, async (req, res) => {
             })
             .sort({ slot_time: -1 });
         res.json(bookings);
-    } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
+    } catch (err) { console.error("Senior Route Error:", err.message); res.status(500).send('Server Error'); }
 });
 
-// GET Admin All
+// ---------------------------------------------------
+// 3. ADMIN: Get All
+// ---------------------------------------------------
 router.get('/admin/all', isAdmin, async (req, res) => {
     try {
         const page = parseInt(req.query.page || '1');
@@ -52,11 +58,6 @@ router.get('/admin/all', isAdmin, async (req, res) => {
         const bookings = await Booking.find()
             .populate('student', 'name mobileNumber _id') 
             .populate('senior', 'name mobileNumber') 
-            .populate('dispute_reason', 'reason') 
-            .populate({
-                path: 'profile', select: 'college tags year',
-                populate: [ { path: 'college', select: 'name' }, { path: 'tags', select: 'name' } ]
-            })
             .sort({ date: -1 })
             .limit(limit)
             .skip(skip);
@@ -72,57 +73,63 @@ router.get('/admin/all', isAdmin, async (req, res) => {
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
-// 🛠️ FIXED: MARK COMPLETE ROUTE
+// ---------------------------------------------------
+// 4. MARK COMPLETE (🔥 CRASH FIX IS HERE)
+// ---------------------------------------------------
 router.put('/mark-complete/:bookingId', auth, async (req, res) => {
     try {
-        console.log("Attempting to mark complete:", req.params.bookingId); // Debug Log
+        console.log(`➡️ Mark Complete Request for ID: ${req.params.bookingId}`);
 
+        // 1. Find Booking
         let booking = await Booking.findById(req.params.bookingId);
-        
+
+        // 2. Check if exists
         if (!booking) {
-            console.log("Booking not found");
+            console.error("❌ Booking not found in DB");
             return res.status(404).json({ msg: 'Booking not found' });
         }
 
-        // Authorization check
+        // 3. Auth Check (Sirf Senior hi mark kar sakta hai)
         if (booking.senior.toString() !== req.user.id) {
-            console.log("Unauthorized user tried to complete booking");
+            console.error("❌ Unauthorized access attempt");
             return res.status(401).json({ msg: 'Not authorized' });
         }
 
-        // Update Status
+        // 4. Update Status
         booking.status = 'Completed';
         await booking.save();
-        
-        console.log("Booking saved as Completed. Fetching updated data...");
+        console.log("✅ Booking status updated to 'Completed'");
 
-        // Safe Fetching (Try-Catch inside fetch to prevent crash on populate)
+        // 5. SAFE Response (Crash Proof)
+        // Hum complex populate nahi karenge agar wo fail ho raha hai.
+        // Hum bas updated booking bhej denge.
+        
         try {
+            // Koshish karo populate karne ki
             const updatedBooking = await Booking.findById(req.params.bookingId)
-                .populate('student', 'name email mobileNumber _id')
-                .populate('dispute_reason', 'reason')
-                .populate({
-                    path: 'profile', 
-                    select: 'college tags year',
-                    populate: [ 
-                        { path: 'college', select: 'name', strictPopulate: false }, 
-                        { path: 'tags', select: 'name', strictPopulate: false } 
-                    ]
-                });
+                .populate('student', 'name email mobileNumber')
+                .populate('dispute_reason', 'reason');
             
-            console.log("Data populated successfully");
-            res.json(updatedBooking);
+            // Agar profile hai to use bhi populate karo
+            if (updatedBooking.profile) {
+                 await updatedBooking.populate({
+                    path: 'profile', select: 'college tags',
+                    populate: [ { path: 'college', select: 'name' } ]
+                }); // Mongoose 6+ syntax
+            }
+
+            return res.json(updatedBooking);
 
         } catch (populateError) {
-            console.error("Populate Error (Returning simple booking):", populateError.message);
-            // Agar populate fail ho jaye, to bina populate kiye return karo
-            // taki frontend crash na ho
-            res.json(booking);
+            console.warn("⚠️ Populate failed, sending basic booking data:", populateError.message);
+            // Agar populate fail hua, to CRASH MAT KARO.
+            // Bas simple booking object bhej do. Frontend sambhal lega.
+            return res.json(booking);
         }
 
     } catch (err) { 
-        console.error("Server Error in mark-complete:", err.message); 
-        res.status(500).send('Server Error'); 
+        console.error("🔥 CRITICAL SERVER ERROR:", err.message); 
+        res.status(500).send('Server Error: ' + err.message); 
     }
 });
 
