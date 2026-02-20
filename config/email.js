@@ -1,28 +1,29 @@
 const nodemailer = require('nodemailer');
-const BrevoTransport = require('nodemailer-brevo-transport');
 
-const BREVO_API_KEY = process.env.BREVO_API_KEY;
-
-const transporter = nodemailer.createTransport(new BrevoTransport({
-  apiKey: BREVO_API_KEY
-}));
-
-// (बदलाव: 'html' (एचटीएमएल) के साथ 'text' (टेक्स्ट) 'parameter' (पैरामीटर) 'add' (जोड़) करें)
 const sendEmail = async (to, subject, html, text) => {
-  try {
-    const mailOptions = {
-      from: `"College Connect" <davepinak0@gmail.com>`, // Brevo verified sender
-      to,
-      subject,
-      html: html, // (HTML (एचटीएमएल) 'version' (संस्करण))
-      text: text  // (Plain-text (सादा-पाठ) 'fallback' (फ़ॉलबैक))
-    };
+  try {
+    // 🚀 BOLD: Brevo ka standard SMTP setup (Sabse stable)
+    const transporter = nodemailer.createTransport({
+      host: 'smtp-relay.brevo.com',
+      port: 587,
+      auth: {
+        user: '9afbbf001@smtp-brevo.com', // Jo tumhare screenshot (90) mein dikh raha hai
+        pass: process.env.BREVO_API_KEY, // Yahan wahi API Key kaam karegi
+      },
+    });
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Brevo Email sent successfully to ${to}`, info);
- } catch (error) {
-    // 💡 Isse exact error message pata chalega ki API Key galat hai ya Sender not verified
-    console.error('❌ Brevo Email Detailed Error:', error.response ? error.response.body : error.message);
+    const mailOptions = {
+      from: '"College Connect" <davepinak0@gmail.com>',
+      to,
+      subject,
+      html: html,
+      text: text
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Email sent: ${to}`, info.messageId);
+  } catch (error) {
+    console.error('❌ Email Error:', error.message);
     throw new Error('Email sending failed.');
   }
 };
