@@ -77,5 +77,36 @@ router.post('/raise/:bookingId', auth, async (req, res) => {
         res.status(500).json({ msg: "Server Error", error: err.message });
     }
 });
+// @route   PUT /api/disputes/resolve/:bookingId
+// @desc    Admin resolves a dispute
+// Note: Ensure you import 'isAdmin' middleware at the top if you want to restrict this to admins
+router.put('/resolve/:bookingId', auth, async (req, res) => {
+    try {
+        const { bookingId } = req.params;
 
+        // 1. Find Booking
+        const booking = await Booking.findById(bookingId);
+        if (!booking) {
+            return res.status(404).json({ msg: "Booking not found." });
+        }
+
+        // 2. Check if dispute exists
+        if (booking.dispute_status !== 'Pending') {
+            return res.status(400).json({ msg: "No pending dispute found for this booking." });
+        }
+
+        // 3. Update Status to Resolved
+        booking.dispute_status = 'Resolved';
+        await booking.save();
+
+        res.json({ success: true, msg: "Dispute resolved successfully", booking });
+
+    } catch (err) {
+        console.error("Resolve Dispute Error:", err.message);
+        if (err.kind === 'ObjectId') {
+            return res.status(400).json({ msg: "Invalid Booking ID format." });
+        }
+        res.status(500).json({ msg: "Server Error", error: err.message });
+    }
+});
 module.exports = router;
