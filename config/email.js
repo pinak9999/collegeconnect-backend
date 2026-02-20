@@ -20,10 +20,11 @@ const sendEmail = async (to, subject, html, text) => {
 
     const info = await transporter.sendMail(mailOptions);
     console.log(`✅ Brevo Email sent successfully to ${to}`, info);
-  } catch (error) {
-    console.error('❌ Brevo Email Error:', error.message);
-    throw new Error('Email sending failed.');
-  }
+ } catch (error) {
+    // 💡 Isse exact error message pata chalega ki API Key galat hai ya Sender not verified
+    console.error('❌ Brevo Email Detailed Error:', error.response ? error.response.body : error.message);
+    throw new Error('Email sending failed.');
+  }
 };
 
 module.exports = sendEmail;
