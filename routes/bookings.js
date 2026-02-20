@@ -95,10 +95,13 @@ router.put('/mark-complete/:bookingId', auth, async (req, res) => {
             return res.status(401).json({ msg: 'Not authorized' });
         }
 
-        // 4. Update Status
-        booking.status = 'Completed';
-        await booking.save();
-        console.log("✅ Booking status updated to 'Completed'");
+       // 4. Update Status (Using updateOne to bypass rating validation)
+await Booking.updateOne(
+    { _id: req.params.bookingId }, 
+    { $set: { status: 'Completed' } }
+);
+booking.status = 'Completed'; // Isko aage ke try-catch response ke liye update rakhna zaroori hai
+console.log("✅ Booking status updated to 'Completed'");
 
         // 5. SAFE Response (Crash Proof)
         // Hum complex populate nahi karenge agar wo fail ho raha hai.
