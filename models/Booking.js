@@ -58,9 +58,10 @@ const BookingSchema = new Schema({
     },
 
     // ⭐ Rating System
+    // ⭐ Rating System
     rating: { 
         type: Number, 
-        min: 1, 
+        min: 0,  // 🔥 Isko 1 se hatakar 0 kar diya
         max: 5,
         default: 0 
     },
