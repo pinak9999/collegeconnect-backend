@@ -2,13 +2,14 @@ const nodemailer = require('nodemailer');
 
 const sendEmail = async (to, subject, html, text) => {
   try {
-    // 🚀 BOLD: Brevo ka standard SMTP setup (Sabse stable)
+    // 🚀 BOLD: Port 465 aur Secure true use kar rahe hain connection timeout fix karne ke liye
     const transporter = nodemailer.createTransport({
       host: 'smtp-relay.brevo.com',
-      port: 587,
+      port: 465,
+      secure: true, // Port 465 ke liye true hona chahiye
       auth: {
-        user: '9afbbf001@smtp-brevo.com', // Jo tumhare screenshot (90) mein dikh raha hai
-        pass: process.env.BREVO_API_KEY, // Yahan wahi API Key kaam karegi
+        user: '9afbbf001@smtp-brevo.com', // Brevo Login ID
+        pass: process.env.BREVO_API_KEY,  // Brevo API Key (Fresh wali)
       },
     });
 
@@ -21,9 +22,9 @@ const sendEmail = async (to, subject, html, text) => {
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Email sent: ${to}`, info.messageId);
+    console.log(`✅ Email sent successfully to ${to}`, info.messageId);
   } catch (error) {
-    console.error('❌ Email Error:', error.message);
+    console.error('❌ Email Error Detail:', error.message);
     throw new Error('Email sending failed.');
   }
 };
