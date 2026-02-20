@@ -70,13 +70,14 @@ app.get('/', (req, res) => {
   res.send('🚀 CollegeConnect Backend is Live! (Full Version)');
 });
 
-// 9. Socket.io Logic
+/// 9. Socket.io Logic
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
     
+    // --- 💬 1. CHAT LOGIC ---
     socket.on('join_room', (bookingId) => {
         socket.join(bookingId);
-        console.log(`User ${socket.id} joined room: ${bookingId}`);
+        console.log(`User ${socket.id} joined Chat room: ${bookingId}`);
     });
 
     socket.on('send_message', async (data) => {
@@ -93,8 +94,29 @@ io.on('connection', (socket) => {
         }
     });
 
+    // --- 📹 2. VIDEO CALL (PEER.JS) LOGIC ---
+    socket.on('join_video_room', (data) => {
+        const { room, peerId, name } = data;
+        
+        socket.join(room); // User ko us specific video room mein daalo
+        console.log(`📹 User ${name} (${socket.id}) joined Video Room: ${room} with PeerID: ${peerId}`);
+
+        // Room mein jo BAAKI log hain (dusra banda), unko iska peerId bhej do
+        socket.to(room).emit('other_user_for_video', { peerId, name });
+
+        // Disconnect handle karne ke liye socket object par data save kar lo
+        socket.videoRoom = room;
+        socket.peerId = peerId;
+    });
+
+    // --- ❌ 3. DISCONNECT LOGIC ---
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
+        
+        // Agar user video call par tha aur leave kar gaya, toh dusre ko bata do
+        if (socket.videoRoom && socket.peerId) {
+            socket.to(socket.videoRoom).emit('peer_left', { peerId: socket.peerId });
+        }
     });
 });
 
