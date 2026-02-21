@@ -1,7 +1,8 @@
 const { Client, RemoteAuth } = require('whatsapp-web.js');
 const { MongoStore } = require('wwebjs-mongo');
 const mongoose = require('mongoose');
-const qrcode = require('qrcode-terminal');
+// पुरानी लाइन हटा दो: const qrcode = require('qrcode-terminal');
+const qrcode = require('qrcode'); // 🚀 BOLD: नई लाइन
 const chromium = require('@sparticuz/chromium'); // 🚀 BOLD: Cloud Server Chrome
 
 let client;
@@ -24,12 +25,19 @@ const initializeWhatsApp = async () => {
             }
         });
 
-        client.on('qr', (qr) => {
+      client.on('qr', async (qr) => {
+        try {
+            // यह QR कोड को एक Base64 Image URL में बदल देगा
+            const qrImageUrl = await qrcode.toDataURL(qr);
             console.log('📱=========================================📱');
-            qrcode.generate(qr, { small: true });
-            console.log('👆 Render Logs में ऊपर दिए गए QR कोड को स्कैन करें!');
+            console.log('👇 नीचे दिए गए पूरे लंबे LINK को कॉपी करो और अपने ब्राउज़र (Naye Tab) में पेस्ट करके एंटर दबाओ:');
+            console.log(qrImageUrl);
+            console.log('👆 ऊपर वाले लिंक को कॉपी करें!');
             console.log('📱=========================================📱');
-        });
+        } catch (err) {
+            console.error("❌ QR जनरेट करने में एरर:", err);
+        }
+    });
 
         client.on('ready', () => {
             console.log('✅ WhatsApp Bot Render Server पर सफलतापूर्वक चालू हो गया है!');
