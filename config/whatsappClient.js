@@ -2,21 +2,21 @@ const { Client, RemoteAuth } = require('whatsapp-web.js');
 const { MongoStore } = require('wwebjs-mongo');
 const mongoose = require('mongoose');
 const qrcode = require('qrcode-terminal');
+const puppeteer = require('puppeteer'); // 🚀 BOLD: नया इम्पोर्ट
 
 let client;
 
-// यह फंक्शन तब चलेगा जब तुम्हारा MongoDB कनेक्ट हो जाएगा (server.js से)
 const initializeWhatsApp = async () => {
-    // MongoDB Store सेटअप (Session डेटाबेस में सेव करने के लिए)
     const store = new MongoStore({ mongoose: mongoose });
 
     client = new Client({
         authStrategy: new RemoteAuth({
             store: store,
-            backupSyncIntervalMs: 300000 // 5 मिनट में सेशन सिंक करेगा
+            backupSyncIntervalMs: 300000
         }),
         puppeteer: { 
-            // 🚀 BOLD: Render और Cloud सर्वर को क्रैश होने से बचाने के लिए ये सेटिंग्स बहुत ज़रूरी हैं
+            // 🚀 BOLD: यह लाइन whatsapp-web.js को सीधा Chrome का रास्ता बता देगी!
+            executablePath: puppeteer.executablePath(), 
             args: [
                 '--no-sandbox', 
                 '--disable-setuid-sandbox', 
@@ -38,7 +38,7 @@ const initializeWhatsApp = async () => {
     });
 
     client.on('remote_session_saved', () => {
-        console.log('💾 WhatsApp Session MongoDB में सेव हो गया है! (अब लॉगआउट नहीं होगा)');
+        console.log('💾 WhatsApp Session MongoDB में सेव हो गया है!');
     });
 
     client.initialize();
