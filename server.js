@@ -6,9 +6,6 @@ const http = require('http');
 const { Server } = require("socket.io"); 
 const Message = require('./models/Message'); 
 
-// 🚀 BOLD: WhatsApp Client इम्पोर्ट करें
-const { initializeWhatsApp } = require('./config/whatsappClient');
-
 // 1. App aur Server setup
 const app = express();
 const server = http.createServer(app);
@@ -29,10 +26,10 @@ app.use(cors({
 // 4. JSON Parser
 app.use(express.json());
 
-// 5. Socket.io Server Setup
+// 5. Socket.io Server Setup (FIXED HERE 🛠️)
 const io = new Server(server, {
     cors: {
-        origin: ALLOWED_ORIGINS, 
+        origin: ALLOWED_ORIGINS, // Ab ye Localhost ko block nahi karega
         methods: ["GET", "POST"],
         credentials: true
     }
@@ -50,11 +47,7 @@ mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-  .then(() => {
-      console.log('✅ MongoDB Connected Successfully');
-      // 🚀 BOLD: डेटाबेस कनेक्ट होने के बाद WhatsApp चालू करें ताकि सेशन DB में सेव हो सके
-      initializeWhatsApp(); 
-  })
+  .then(() => console.log('✅ MongoDB Connected Successfully'))
   .catch((err) => console.error('❌ MongoDB Connection Error:', err.message));
 
 // --- 7. API Routes ---
@@ -62,7 +55,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/users', require('./routes/users')); 
 app.use('/api/profile', require('./routes/profile'));
 app.use('/api/payment', require('./routes/payment'));
-app.use('/api/bookings', require('./routes/bookings'));
+app.use('/api/bookings', require('./routes/bookings')); // Make sure filename is 'bookings.js' inside routes folder
 app.use('/api/ratings', require('./routes/ratings'));
 app.use('/api/disputes', require('./routes/disputes'));
 app.use('/api/payouts', require('./routes/payouts'));
@@ -105,11 +98,13 @@ io.on('connection', (socket) => {
     socket.on('join_video_room', (data) => {
         const { room, peerId, name } = data;
         
-        socket.join(room); 
+        socket.join(room); // User ko us specific video room mein daalo
         console.log(`📹 User ${name} (${socket.id}) joined Video Room: ${room} with PeerID: ${peerId}`);
 
+        // Room mein jo BAAKI log hain (dusra banda), unko iska peerId bhej do
         socket.to(room).emit('other_user_for_video', { peerId, name });
 
+        // Disconnect handle karne ke liye socket object par data save kar lo
         socket.videoRoom = room;
         socket.peerId = peerId;
     });
@@ -118,6 +113,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
         
+        // Agar user video call par tha aur leave kar gaya, toh dusre ko bata do
         if (socket.videoRoom && socket.peerId) {
             socket.to(socket.videoRoom).emit('peer_left', { peerId: socket.peerId });
         }

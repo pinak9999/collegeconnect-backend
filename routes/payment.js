@@ -4,9 +4,8 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
-const User = require('../models/User'); // 🚀 BOLD: User मॉडल इम्पोर्ट किया ताकि मोबाइल नंबर निकाल सकें
-const { sendWhatsAppMessage } = require('../config/whatsappClient');
-
+// WhatsApp वाली लाइन हटाकर ये लाइन लगाओ:
+const sendEmail = require('../config/email');
 // --- 🛡️ Security Tip: Keys ko hamesha .env file mein rakhein ---
 const RAZORPAY_KEY_ID = 'rzp_test_RbhIpPvOLS2KkF'; 
 const RAZORPAY_KEY_SECRET = 'bWmPpwl6WLu4M8Ifdr0LZ2lP'; 
@@ -67,38 +66,59 @@ router.post('/verify', auth, async (req, res) => {
 
         console.log("✅ Signature Matched! Saving Booking...");
 
-        // 2. 💾 Database mein Save karein
+    // 2. 💾 Database mein Save karein
         const newBooking = new Booking({
-            student: req.user.id,                    // auth middleware se user ID
-            senior: bookingDetails.senior,           // Frontend se senior ki ID
-            profile: bookingDetails.profileId,       // Frontend se profile reference
+            student: req.user.id,                    
+            senior: bookingDetails.senior,           
+            profile: bookingDetails.profileId,       
             slot_time: bookingDetails.slot_time || new Date(),
-            amount_paid: bookingDetails.amount,      // Total amount paid
+            amount_paid: bookingDetails.amount,      
             razorpay_payment_id: razorpay_payment_id,
-            razorpay_order_id: razorpay_order_id,    // Record keeping ke liye
-            status: 'Confirmed'                      // Payment success hote hi status confirmed
+            razorpay_order_id: razorpay_order_id,    
+            status: 'Confirmed'                      
         });
 
         const savedBooking = await newBooking.save();
 
         // ==========================================
-        // 🚀 3. WhatsApp Notification Logic (FREE)
+        // 🚀 3. EMAIL Notification Logic (Super Fast & Stable)
         // ==========================================
         try {
             // सीनियर और स्टूडेंट का डेटा निकालें
             const seniorUser = await User.findById(bookingDetails.senior); 
             const studentUser = await User.findById(req.user.id);
 
-            // अगर सीनियर का मोबाइल नंबर डेटाबेस में है, तभी मैसेज भेजें
-            if (seniorUser && seniorUser.mobileNumber) {
-                const whatsappMsg = `*CollegeConnect Alert!* 🚀\n\nHello ${seniorUser.name},\nआपको एक नई बुकिंग मिली है!\n\n*Student:* ${studentUser ? studentUser.name : 'A Student'}\n*Amount Paid:* ₹${bookingDetails.amount}\n*Status:* Confirmed ✅\n\nकृपया अपने डैशबोर्ड में चेक करें और स्टूडेंट से संपर्क करें।`;
+            // अगर सीनियर का ईमेल डेटाबेस में है, तभी मैसेज भेजें
+            if (seniorUser && seniorUser.email) {
+                const subject = "🎉 New Booking Alert - CollegeConnect";
                 
-                // मैसेज भेजें
-                sendWhatsAppMessage(seniorUser.mobileNumber, whatsappMsg);
+                // एकदम प्रोफेशनल दिखने वाला HTML ईमेल डिज़ाइन
+                const htmlContent = `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                        <h2 style="color: #4CAF50;">Congratulations! 🎉</h2>
+                        <p>Hello <strong>${seniorUser.name}</strong>,</p>
+                        <p>You have received a new mentorship booking on CollegeConnect.</p>
+                        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                            <p><strong>🎓 Student Name:</strong> ${studentUser ? studentUser.name : 'A Student'}</p>
+                            <p><strong>💰 Amount Paid:</strong> ₹${bookingDetails.amount}</p>
+                            <p><strong>✅ Status:</strong> Confirmed</p>
+                        </div>
+                        <p>Please log in to your dashboard to check the details and connect with the student.</p>
+                        <br/>
+                        <p>Best Regards,</p>
+                        <p><strong>Team CollegeConnect 🚀</strong></p>
+                    </div>
+                `;
+
+                const textContent = `Hello ${seniorUser.name}, You have a new booking from ${studentUser ? studentUser.name : 'A Student'}. Amount Paid: ₹${bookingDetails.amount}. Status: Confirmed.`;
+                
+                // ईमेल भेजें
+                await sendEmail(seniorUser.email, subject, htmlContent, textContent);
+                console.log(`✅ SUCCESS: Booking Email sent to Senior (${seniorUser.email})`);
             }
-        } catch (waError) {
-            // अगर WhatsApp मैसेज फेल भी हो जाये, तो पेमेंट क्रैश नहीं होगा
-            console.error("⚠️ WhatsApp Notification Failed, but booking saved:", waError.message);
+        } catch (emailError) {
+            // अगर ईमेल फेल भी हो जाये, तो पेमेंट क्रैश नहीं होगा
+            console.error("⚠️ Email Notification Failed, but booking saved:", emailError.message);
         }
         // ==========================================
 
@@ -109,6 +129,7 @@ router.post('/verify', auth, async (req, res) => {
         });
 
     } catch (err) {
+        // Validation ya Database connection error pakadne ke liye
         console.error("❌ Database/Verification Error:", err.message);
         res.status(500).json({ 
             success: false, 
@@ -118,4 +139,4 @@ router.post('/verify', auth, async (req, res) => {
     }
 });
 
-module.exports = router; 
+module.exports = router;
