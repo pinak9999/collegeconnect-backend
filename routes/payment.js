@@ -4,6 +4,8 @@ const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
+const User = require('../models/User'); // 🚀 BOLD: User मॉडल इम्पोर्ट किया ताकि मोबाइल नंबर निकाल सकें
+const { sendWhatsAppMessage } = require('../config/whatsappClient');
 
 // --- 🛡️ Security Tip: Keys ko hamesha .env file mein rakhein ---
 const RAZORPAY_KEY_ID = 'rzp_test_RbhIpPvOLS2KkF'; 
@@ -66,7 +68,6 @@ router.post('/verify', auth, async (req, res) => {
         console.log("✅ Signature Matched! Saving Booking...");
 
         // 2. 💾 Database mein Save karein
-        // Ensure karein ki 'Booking' model ki fields aur ye object matches ho
         const newBooking = new Booking({
             student: req.user.id,                    // auth middleware se user ID
             senior: bookingDetails.senior,           // Frontend se senior ki ID
@@ -80,6 +81,27 @@ router.post('/verify', auth, async (req, res) => {
 
         const savedBooking = await newBooking.save();
 
+        // ==========================================
+        // 🚀 3. WhatsApp Notification Logic (FREE)
+        // ==========================================
+        try {
+            // सीनियर और स्टूडेंट का डेटा निकालें
+            const seniorUser = await User.findById(bookingDetails.senior); 
+            const studentUser = await User.findById(req.user.id);
+
+            // अगर सीनियर का मोबाइल नंबर डेटाबेस में है, तभी मैसेज भेजें
+            if (seniorUser && seniorUser.mobileNumber) {
+                const whatsappMsg = `*CollegeConnect Alert!* 🚀\n\nHello ${seniorUser.name},\nआपको एक नई बुकिंग मिली है!\n\n*Student:* ${studentUser ? studentUser.name : 'A Student'}\n*Amount Paid:* ₹${bookingDetails.amount}\n*Status:* Confirmed ✅\n\nकृपया अपने डैशबोर्ड में चेक करें और स्टूडेंट से संपर्क करें।`;
+                
+                // मैसेज भेजें
+                sendWhatsAppMessage(seniorUser.mobileNumber, whatsappMsg);
+            }
+        } catch (waError) {
+            // अगर WhatsApp मैसेज फेल भी हो जाये, तो पेमेंट क्रैश नहीं होगा
+            console.error("⚠️ WhatsApp Notification Failed, but booking saved:", waError.message);
+        }
+        // ==========================================
+
         res.status(200).json({ 
             success: true, 
             msg: "Booking successfully confirmed!", 
@@ -87,7 +109,6 @@ router.post('/verify', auth, async (req, res) => {
         });
 
     } catch (err) {
-        // Validation ya Database connection error pakadne ke liye
         console.error("❌ Database/Verification Error:", err.message);
         res.status(500).json({ 
             success: false, 
@@ -97,4 +118,4 @@ router.post('/verify', auth, async (req, res) => {
     }
 });
 
-module.exports = router;
+module.exports = router; 
