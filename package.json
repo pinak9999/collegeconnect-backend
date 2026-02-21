@@ -18,6 +18,7 @@
   "homepage": "https://github.com/pinak9999/collegeconnect-backend#readme",
   "description": "",
   "dependencies": {
+    "@sparticuz/chromium": "^143.0.4",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^1.41.3",
     "cors": "^2.8.5",
