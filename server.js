@@ -5,10 +5,7 @@ const cors = require('cors');
 const http = require('http'); 
 const { Server } = require("socket.io"); 
 const Message = require('./models/Message'); 
-// 1. सबसे ऊपर Import करो
 
-// 2. जहाँ तुम्हारे सारे <Route> हैं, वहाँ ये लाइन जोड़ दो:
-<Route path="/about" element={<About />} />
 // 1. App aur Server setup
 const app = express();
 const server = http.createServer(app);
