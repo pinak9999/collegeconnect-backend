@@ -24,16 +24,7 @@ const ProfileSchema = new Schema({
     },
     // --- (अपडेट (Update) खत्म) ---
 
-    // 🚀 BOLD NEW UPDATE: Senior का Permanent Google Meet Link
-    meet_link: { 
-        type: String, 
-        default: '' 
-    },
-
-    // 📅 Senior's Weekly Availability (किस दिन, कितने बजे से कितने बजे तक)
     availability: [ { day: String, startTime: String, endTime: String } ],
-    
     date: { type: Date, default: Date.now }
 });
-
 module.exports = Profile = mongoose.model('profile', ProfileSchema);

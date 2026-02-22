@@ -164,35 +164,5 @@ router.get('/public/top-rated', async (req, res) => {
         res.status(500).send('Server Error'); 
     }
 });
-// 🚀 UPDATE: Google Meet Link save karne ka route
-router.put('/meet-link', auth, async (req, res) => {
-    try {
-        const profile = await Profile.findOne({ user: req.user.id });
-        if (!profile) return res.status(404).json({ msg: "Profile not found" });
 
-        profile.meet_link = req.body.meet_link;
-        await profile.save();
-
-        res.json({ msg: "Meet link updated successfully", profile });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send("Server Error");
-    }
-});
-// 🚀 UPDATE: Senior ki availability save karne ka route
-router.put('/availability', auth, async (req, res) => {
-    try {
-        const profile = await Profile.findOne({ user: req.user.id });
-        if (!profile) return res.status(404).json({ msg: "Profile not found" });
-
-        // Body mein availability array aayega
-        profile.availability = req.body.availability;
-        await profile.save();
-
-        res.json({ msg: "Availability updated successfully", availability: profile.availability });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send("Server Error");
-    }
-});
 module.exports = router;

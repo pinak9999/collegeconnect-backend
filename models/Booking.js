@@ -3,34 +3,28 @@ const Schema = mongoose.Schema;
 
 const BookingSchema = new Schema({
     // 👤 Core Users
+    // Student jisne book kiya hai
     student: { 
         type: Schema.Types.ObjectId, 
-        ref: 'user', 
+        ref: 'user', // Must match mongoose.model('user')
         required: true,
         index: true 
     },
+    // Senior jiske saath booking hui hai
     senior: { 
         type: Schema.Types.ObjectId, 
-        ref: 'user', 
+        ref: 'user', // Must match mongoose.model('user')
         required: true,
         index: true 
     },
+
+    // Senior profile reference
     profile: { 
         type: Schema.Types.ObjectId, 
-        ref: 'profile' 
+        ref: 'profile' // Must match mongoose.model('profile')
     },
 
-    // ⏰ 🚀 NEW: Exact Meeting Date and Time (डबल बुकिंग रोकने के लिए सबसे ज़रूरी)
-    meetingDate: { 
-        type: String,  // Example: "2026-02-25"
-        required: true 
-    },
-    meetingTime: { 
-        type: String,  // Example: "05:00 PM"
-        required: true 
-    },
-    
-    // Timer और Sorting के लिए (पुराना वाला भी रखेंगे ताकि कुछ टूटे नहीं)
+    // ⏰ Meeting Time
     slot_time: { 
         type: Date, 
         required: true 
@@ -64,9 +58,10 @@ const BookingSchema = new Schema({
     },
 
     // ⭐ Rating System
+    // ⭐ Rating System
     rating: { 
         type: Number, 
-        min: 0,  
+        min: 0,  // 🔥 Isko 1 se hatakar 0 kar diya
         max: 5,
         default: 0 
     },
@@ -89,13 +84,13 @@ const BookingSchema = new Schema({
     },
     dispute_reason: {
         type: Schema.Types.ObjectId,
-        ref: 'disputereason' 
+        ref: 'disputereason' // Must match mongoose.model('disputereason')
     },
     dispute_comment: {
         type: String
     },
 
-    // 🔗 Meeting Info (सीनियर का Google Meet लिंक पेमेंट के बाद यहाँ सेव होगा)
+    // 🔗 Meeting Info
     meeting_link: {
         type: String,
         default: ""
