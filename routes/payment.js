@@ -70,7 +70,9 @@ router.post('/verify', auth, async (req, res) => {
         const newBooking = new Booking({
             student: req.user.id,                    
             senior: bookingDetails.senior,           
-            profile: bookingDetails.profileId,       
+            profile: bookingDetails.profileId,  
+            meetingDate: bookingDetails.meetingDate, 
+            meetingTime: bookingDetails.meetingTime,     
             slot_time: bookingDetails.slot_time || new Date(),
             amount_paid: bookingDetails.amount,      
             razorpay_payment_id: razorpay_payment_id,
