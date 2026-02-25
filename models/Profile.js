@@ -15,16 +15,25 @@ const ProfileSchema = new Schema({
     avatar: { type: String, default: 'https://via.placeholder.com/100' },
     cloudinary_id: { type: String },
     
-    // --- (यह रहा 'नया' (New) 'अपडेट' (Update) #3) ---
-    id_card_url: { // (यह 'ID Card' (आईडी कार्ड) (पहचान पत्र) 'URL' (यूआरएल) (URL (यूआरएल)) 'रखेगा' (will keep))
-        type: String 
-    },
-    id_card_cloudinary_id: { // (इसे 'डिलीट' (delete) (हटाने) 'करने' (do) 'के लिए' (for))
-        type: String 
-    },
-    // --- (अपडेट (Update) खत्म) ---
+    id_card_url: { type: String },
+    id_card_cloudinary_id: { type: String },
 
+    // 🔗 Senior's Google Meet Link
+    meet_link: { type: String, default: '' },
+
+    // 📅 General Weekly Schedule
     availability: [ { day: String, startTime: String, endTime: String } ],
+
+    // 🚀 NEW: Date-Specific Overrides
+    overrides: [{
+        date: String,         
+        isUnavailable: { type: Boolean, default: false }, 
+        startTime: String,    
+        endTime: String
+    }],
+    
     date: { type: Date, default: Date.now }
 });
+
+// ✅ End of file (Yahan router ka koi code nahi hona chahiye)
 module.exports = Profile = mongoose.model('profile', ProfileSchema);
