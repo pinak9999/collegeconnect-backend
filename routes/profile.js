@@ -97,7 +97,7 @@ router.get('/me', auth, async (req, res) => {
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
-// (PUT /api/profile/availability) (Weekly Schedule)
+// (PUT /api/profile/availability) (Senior Dashboard) (सीनियर डैशबोर्ड)
 router.put('/availability', auth, async (req, res) => {
     const { availability } = req.body; 
     try {
@@ -149,52 +149,19 @@ router.get('/senior/:userId', auth, async (req, res) => {
 // =========================================================
 
 // (GET /api/profile/public/top-rated) 
+// 🔥 Ye naya route hai jo missing tha
 router.get('/public/top-rated', async (req, res) => {
     try {
+        // Find profiles, populate user details, sort by rating desc, limit to 5
         const profiles = await Profile.find()
             .populate('user', 'name avatar')
-            .sort({ average_rating: -1 }) 
+            .sort({ average_rating: -1 }) // Highest rating first
             .limit(5);
 
         res.json(profiles);
     } catch (err) { 
         console.error("Top Rated Error:", err.message); 
         res.status(500).send('Server Error'); 
-    }
-});
-
-// =========================================================
-// 🚀 4. NEW: AVAILABILITY OVERRIDE ROUTE (JO MISSING THA)
-// =========================================================
-router.put('/availability/override', auth, async (req, res) => {
-    try {
-        const { date, isUnavailable, startTime, endTime } = req.body;
-        
-        // 1. Profile find karo
-        const profile = await Profile.findOne({ user: req.user.id });
-        if (!profile) return res.status(404).json({ msg: "Profile not found" });
-
-        // 2. Agar overrides array nahi hai to banao
-        if (!profile.overrides) profile.overrides = [];
-
-        // 3. Check karo agar date pehle se hai
-        const existingIndex = profile.overrides.findIndex(o => o.date === date);
-
-        if (existingIndex > -1) {
-            // Update existing
-            profile.overrides[existingIndex] = { date, isUnavailable, startTime, endTime };
-        } else {
-            // Add new
-            profile.overrides.push({ date, isUnavailable, startTime, endTime });
-        }
-
-        // 4. Save karo
-        await profile.save();
-        res.json({ msg: "Date availability updated!", overrides: profile.overrides });
-
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send("Server Error");
     }
 });
 
