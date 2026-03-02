@@ -6,6 +6,9 @@ const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
 // WhatsApp वाली लाइन हटाकर ये लाइन लगाओ:
 const sendEmail = require('../config/email');
+// User model import karna zaroori hai email notification ke liye
+const User = require('../models/User'); 
+
 // --- 🛡️ Security Tip: Keys ko hamesha .env file mein rakhein ---
 const RAZORPAY_KEY_ID = 'rzp_test_RbhIpPvOLS2KkF'; 
 const RAZORPAY_KEY_SECRET = 'bWmPpwl6WLu4M8Ifdr0LZ2lP'; 
@@ -23,8 +26,13 @@ router.post('/order', auth, async (req, res) => {
     try {
         const { amount } = req.body;
         
+        // 🔥 FIX: Check if amount exists, otherwise send error instead of defaulting to 500
+        if (!amount || isNaN(amount)) {
+            return res.status(400).json({ msg: "Invalid or missing amount" });
+        }
+        
         const options = {
-            amount: Math.round((amount || 500) * 100), // Rupee to Paise conversion
+            amount: Math.round(Number(amount) * 100), // Rupee to Paise conversion (Strict Number check)
             currency: "INR",
             receipt: `rcpt_${Date.now()}`,
         };
@@ -69,7 +77,7 @@ router.post('/verify', auth, async (req, res) => {
     // 2. 💾 Database mein Save karein
         const newBooking = new Booking({
             student: req.user.id,                    
-            senior: bookingDetails.senior,           
+            senior: bookingDetails.senior,          
             profile: bookingDetails.profileId,       
             slot_time: bookingDetails.slot_time || new Date(),
             amount_paid: bookingDetails.amount,      
@@ -92,7 +100,7 @@ router.post('/verify', auth, async (req, res) => {
             if (seniorUser && seniorUser.email) {
                 const subject = "🎉 New Booking Alert - CollegeConnect";
                 
-                // एकदम प्रोफेशनल दिखने वाला HTML ईमेल डिज़ाइन
+                // एकदम प्रोफेशनल दिखने वाला HTML ईमेल डिज़ाइन
                 const htmlContent = `
                     <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
                         <h2 style="color: #4CAF50;">Congratulations! 🎉</h2>
