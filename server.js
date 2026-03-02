@@ -13,6 +13,8 @@ const server = http.createServer(app);
 // 2. Allowed Origins List (Live + Localhost)
 const ALLOWED_ORIGINS = [
     process.env.CLIENT_URL || 'https://collegeconnect-frontend.vercel.app',
+    "https://reapcampusconnect.in",      // आपका नया डोमेन
+    "https://www.reapcampusconnect.in",  // www के साथ आपका नया डोमेन
     "http://localhost:3000",
     "http://localhost:5173"
 ];
