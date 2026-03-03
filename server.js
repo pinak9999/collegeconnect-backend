@@ -1,4 +1,4 @@
-require('dotenv').config(); 
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -66,7 +66,7 @@ app.use('/api/tags', require('./routes/tags'));
 app.use('/api/colleges', require('./routes/colleges'));
 app.use('/api/disputereasons', require('./routes/disputereasons'));
 app.use('/api/chat', require('./routes/chat')); 
-
+app.use('/api/ai/matchmaker', require('./routes/aiMatchmaker'));
 // 8. Root route
 app.get('/', (req, res) => {
   res.send('🚀 CollegeConnect Backend is Live! (Full Version)');
