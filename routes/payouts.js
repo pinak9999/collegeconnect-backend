@@ -26,63 +26,44 @@ router.get('/admin', isAdmin, async (req, res) => {
             // 2. Profile data fetch karein (zaroorat padne par future use ke liye)
             { $lookup: { from: 'profiles', localField: 'profile', foreignField: '_id', as: 'profileData' } },
             { $unwind: { path: '$profileData', preserveNullAndEmptyArrays: true } },
-            {
+            
                 // 3. Senior ke hisaab से ग्रुपिंग और कैलकुलेशन
+      {
                 $group: {
                     _id: '$senior', 
                     totalBookings: { $sum: 1 },
                     
-                    // ✅ FIXED: Regular Bookings - Jo na promotional hai na hi free coupon se hai
+                    // ✅ NEW LOGIC: Agar amount_paid 0 se zyada hai, tabhi use Regular maano
                     regularBookings: { 
                         $sum: { 
                             $cond: [
-                                { 
-                                    $or: [
-                                        { $eq: ['$isPromotional', true] },
-                                        { $eq: ['$paymentMethod', 'Coupon_Free'] }
-                                    ] 
-                                }, 
-                                0, 1 
+                                { $gt: ['$amount_paid', 0] }, // Kya amount 0 se bada hai?
+                                1,                            // Haan -> Regular
+                                0                             // Nahi -> Promo
                             ] 
                         } 
                     },
 
-                    // ✅ FIXED: Promo Bookings - Jo ya to promotional hai ya free coupon se hai
+                    // ✅ NEW LOGIC: Agar amount_paid 0 hai, to wo Promo hai
                     promoBookings: { 
                         $sum: { 
                             $cond: [
-                                { 
-                                    $or: [
-                                        { $eq: ['$isPromotional', true] },
-                                        { $eq: ['$paymentMethod', 'Coupon_Free'] }
-                                    ] 
-                                }, 
-                                1, 0 
+                                { $eq: ['$amount_paid', 0] }, // Kya amount 0 hai?
+                                1,                            // Haan -> Promo
+                                0                             // Nahi -> Regular
                             ] 
                         } 
                     },
 
-                    // 💰 Sirf Regular sessions ka amount paid count karein
+                    // 💰 Payout Calculation: Sirf wahi paisa jo students ne diya
                     totalPaidByStudents: { 
-                        $sum: { 
-                            $cond: [
-                                { 
-                                    $or: [
-                                        { $eq: ['$isPromotional', true] },
-                                        { $eq: ['$paymentMethod', 'Coupon_Free'] }
-                                    ] 
-                                }, 
-                                0, '$amount_paid'
-                            ] 
-                        } 
+                        $sum: { $cond: [{ $gt: ['$amount_paid', 0] }, '$amount_paid', 0] } 
                     }
                 }
             },
-            // 4. Senior details fetch karein (Name, Email etc.)
             { $lookup: { from: 'users', localField: '_id', foreignField: '_id', as: 'seniorDetails' } },
             { $unwind: '$seniorDetails' },
             {
-                // 5. Final structure design karein
                 $project: { 
                     seniorId: '$_id',
                     seniorName: '$seniorDetails.name',
@@ -90,9 +71,9 @@ router.get('/admin', isAdmin, async (req, res) => {
                     totalBookings: 1,
                     regularBookings: 1, 
                     promoBookings: 1,   
-                    // Platform fee sirf regular sessions par multiply hogi
+                    // Platform Fee sirf Regular sessions par calculate hogi
                     totalPlatformFee: { $multiply: ['$regularBookings', platformFee] },
-                    // Final Payout = Students se mila paisa - Platform fees
+                    // Final Payout logic
                     finalPayoutAmount: { 
                         $subtract: ['$totalPaidByStudents', { $multiply: ['$regularBookings', platformFee] }] 
                     }
