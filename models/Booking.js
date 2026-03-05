@@ -37,11 +37,27 @@ const BookingSchema = new Schema({
     },
     razorpay_payment_id: { 
         type: String, 
-        required: true,
-        unique: true 
+        required: false, // 🔥 UPDATE: Free booking ke liye ise false kiya gaya hai
+        unique: true,
+        sparse: true     // 🔥 UPDATE: Null values ko unique hone par error aane se rokne ke liye
     },
     razorpay_order_id: { 
         type: String 
+    },
+
+    // 🚀 NEW: Promotional / Free Session Tracking
+    isPromotional: {
+        type: Boolean,
+        default: false   // Normal bookings ke liye false rahega, free wale ke liye true
+    },
+    couponUsed: {
+        type: String,
+        default: null
+    },
+    paymentMethod: {
+        type: String,
+        enum: ['Razorpay', 'Coupon_Free'],
+        default: 'Razorpay'
     },
 
     // 🚀 Booking Status
@@ -57,7 +73,6 @@ const BookingSchema = new Schema({
         default: 'Confirmed'
     },
 
-    // ⭐ Rating System
     // ⭐ Rating System
     rating: { 
         type: Number, 

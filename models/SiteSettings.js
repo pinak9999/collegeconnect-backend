@@ -8,7 +8,17 @@ const SiteSettingsSchema = new Schema({
         type: Number,
         required: true,
         default: 20 // 'डिफ़ॉल्ट' (Default) (डिफ़ॉल्ट) ₹20
+    },
+    
+    // 🎟️ 🚀 NEW: Coupon Management Settings
+    couponLimit: {
+        type: Number,
+        default: 15 // एडमिन इसे डैशबोर्ड से बदल सकता है
+    },
+    isCouponActive: {
+        type: Boolean,
+        default: true // एडमिन इसे डैशबोर्ड से बंद (false) कर सकता है
     }
 });
 
-module.exports = SiteSettings = mongoose.model('sitesettings', SiteSettingsSchema);
+module.exports = mongoose.model('sitesettings', SiteSettingsSchema);

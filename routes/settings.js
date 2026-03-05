@@ -3,11 +3,10 @@ const router = express.Router();
 const isAdmin = require('../middleware/isAdmin');
 const SiteSettings = require('../models/SiteSettings');
 
-// 'सेटिंग्स' (Settings) 'ऑब्जेक्ट' (object) को 'ढूँढने' (find) या 'बनाने' (create) के 'लिए' (for) 'हेल्पर' (helper) (helper)
+// 'सेटिंग्स' (Settings) 'ऑब्जेक्ट' (object) को 'ढूँढने' (find) या 'बनाने' (create) के 'लिए' (for) 'हेल्पर' (helper)
 const getSettings = async () => {
     let settings = await SiteSettings.findOne();
     if (!settings) {
-        // (अगर 'सेटिंग्स' (settings) 'पहली' (first) 'बार' (time) 'लोड' (load) हो 'रही' (being) 'हैं' (are), 'तो' (then) 'डिफ़ॉल्ट' (default) (डिफ़ॉल्ट) 'बनाएँ' (create))
         settings = new SiteSettings();
         await settings.save();
     }
@@ -17,7 +16,7 @@ const getSettings = async () => {
 /**
  * @route   GET /api/settings
  * @desc    Get current site settings
- * @access  Public (या 'Auth' (ऑथ) (auth))
+ * @access  Public
  */
 router.get('/', async (req, res) => {
     try {
@@ -41,6 +40,25 @@ router.put('/', isAdmin, async (req, res) => {
         await settings.save();
         res.json(settings);
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
+});
+
+// PUT /api/settings/update-coupon (Admin Only)
+router.put('/update-coupon', isAdmin, async (req, res) => {
+    try {
+        const { limit, isActive } = req.body;
+        
+        // 🔥 यहाँ हमने आपके बनाए हेल्पर फंक्शन का इस्तेमाल कर लिया
+        let settings = await getSettings();
+        
+        if (limit !== undefined) settings.couponLimit = limit;
+        if (isActive !== undefined) settings.isCouponActive = isActive;
+        
+        await settings.save();
+        res.json({ msg: 'Coupon settings updated successfully', settings });
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
 });
 
 module.exports = router;

@@ -3,9 +3,114 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
 const Booking = require('../models/Booking');
+const SiteSettings = require('../models/SiteSettings'); // 🚀 NEW: SiteSettings Import kiya
 
 // ---------------------------------------------------
-// 1. GET Student Bookings
+// 📊 NEW 0: ADMIN Coupon Stats (Admin dashboard ke liye)
+// ---------------------------------------------------
+router.get('/admin/coupon-stats', isAdmin, async (req, res) => {
+    try {
+        let settings = await SiteSettings.findOne();
+        if (!settings) settings = new SiteSettings();
+
+        const usageCount = await Booking.countDocuments({ couponUsed: "FREE15" });
+
+        res.json({
+            limit: settings.couponLimit,
+            isActive: settings.isCouponActive,
+            totalUsed: usageCount
+        });
+    } catch (err) {
+        console.error("Coupon Stats Error:", err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// ---------------------------------------------------
+// 🎟️ NEW 1: Apply Coupon & Check Dynamic Limit
+// ---------------------------------------------------
+router.post('/apply-coupon', auth, async (req, res) => {
+    try {
+        const { couponCode } = req.body;
+
+        if (couponCode !== "FREE15") {
+            return res.status(400).json({ msg: "Invalid Coupon Code ❌" });
+        }
+
+        // 🚀 Dynamic Settings Fetch
+        let settings = await SiteSettings.findOne();
+        if (!settings) settings = new SiteSettings();
+
+        // Check if coupon is active
+        if (!settings.isCouponActive) {
+            return res.status(400).json({ msg: "This coupon is currently inactive or paused by Admin. ⚠️" });
+        }
+
+        const usageCount = await Booking.countDocuments({ couponUsed: "FREE15" });
+
+        // Check against dynamic limit
+        if (usageCount >= settings.couponLimit) {
+            return res.status(400).json({ msg: `Offer Expired! Limit of ${settings.couponLimit} users already claimed. ⚠️` });
+        }
+
+        res.json({ 
+            success: true, 
+            msg: "Coupon Applied! Your session is now FREE 🎉",
+            discount: 100 
+        });
+    } catch (err) {
+        res.status(500).send('Server Error');
+    }
+});
+
+// ---------------------------------------------------
+// 🚀 NEW 2: Create Free Booking (With isPromotional Flag & Dynamic Check)
+// ---------------------------------------------------
+router.post('/create-free-booking', auth, async (req, res) => {
+    try {
+        const { seniorId, profileId, couponCode } = req.body;
+
+        if (couponCode !== "FREE15") return res.status(400).json({ msg: "Invalid coupon" });
+        
+        // 🚀 Dynamic Settings Fetch
+        let settings = await SiteSettings.findOne();
+        if (!settings) settings = new SiteSettings();
+
+        if (!settings.isCouponActive) {
+            return res.status(400).json({ msg: "Coupon is inactive." });
+        }
+
+        const usageCount = await Booking.countDocuments({ couponUsed: "FREE15" });
+        
+        if (usageCount >= settings.couponLimit) {
+            return res.status(400).json({ msg: "Limit reached" });
+        }
+
+        const newBooking = new Booking({
+            student: req.user.id,
+            senior: seniorId,
+            profile: profileId,
+            amount_paid: 0, 
+            slot_time: new Date(), 
+            status: 'Confirmed', 
+            payout_status: 'Unpaid',
+            paymentMethod: 'Coupon_Free',
+            couponUsed: "FREE15",
+            isPromotional: true, // 🚀 Yahan se database ko pata chalega ki ye free session hai
+            date: new Date()
+        });
+
+        const savedBooking = await newBooking.save();
+        res.json({ success: true, booking: savedBooking });
+
+    } catch (err) {
+        console.error("Free Booking Error:", err.message);
+        res.status(500).json({ msg: 'Server Error: ' + err.message });
+    }
+});
+
+// ---------------------------------------------------
+// 1. GET Student Bookings (Original Logic Preserved)
 // ---------------------------------------------------
 router.get('/student/my', auth, async (req, res) => {
     try {
@@ -30,7 +135,7 @@ router.get('/student/my', auth, async (req, res) => {
 });
 
 // ---------------------------------------------------
-// 2. GET Senior Bookings
+// 2. GET Senior Bookings (Original Logic Preserved)
 // ---------------------------------------------------
 router.get('/senior/my', auth, async (req, res) => {
     try {
@@ -47,7 +152,7 @@ router.get('/senior/my', auth, async (req, res) => {
 });
 
 // ---------------------------------------------------
-// 3. ADMIN: Get All
+// 3. ADMIN: Get All (Original Logic Preserved)
 // ---------------------------------------------------
 router.get('/admin/all', isAdmin, async (req, res) => {
     try {
@@ -74,7 +179,7 @@ router.get('/admin/all', isAdmin, async (req, res) => {
 });
 
 // ---------------------------------------------------
-// 4. MARK COMPLETE (🔥 CRASH FIX IS HERE)
+// 4. MARK COMPLETE (🔥 CRASH FIX IS HERE - Preserved)
 // ---------------------------------------------------
 router.put('/mark-complete/:bookingId', auth, async (req, res) => {
     try {
