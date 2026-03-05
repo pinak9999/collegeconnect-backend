@@ -109,38 +109,35 @@ router.put('/availability', auth, async (req, res) => {
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
-// 🚀 --- UPDATED STATS ROUTE ---
+// 🚀 --- UPDATED STATS ROUTE (Free sessions earning se hata diye gaye) ---
 router.get('/senior/stats', auth, async (req, res) => {
     try {
         const seniorId = req.user.id;
-        
-        // Settings for platform fee
         let settings = await SiteSettings.findOne();
         if (!settings) settings = new SiteSettings(); 
         const platformFee = settings.platformFee;
-
-        // Senior ki profile lana zaruri hai, taaki promo session me unki base price pata chale
-        const profile = await Profile.findOne({ user: seniorId });
-        const basePrice = profile ? profile.price_per_session : 100; // Default fallback to 100
 
         const allBookings = await Booking.find({ senior: seniorId });
 
         let totalCompleted = 0, totalPending = 0, unpaidAmount = 0, totalPaidAmount = 0; 
         
         allBookings.forEach(booking => {
-            // 🧠 Smart Earning Calculation Logic
+            // ✅ Check karein ki kya ye session paid hai ya promotional
             const isPromo = booking.isPromotional || booking.paymentMethod === 'Coupon_Free';
-            
-            // Promo session hai toh admin full base price dega, nahi toh normal logic (amount_paid - fee)
-            const seniorEarning = isPromo ? basePrice : (booking.amount_paid - platformFee);
 
             if (booking.status === 'Completed') {
                 totalCompleted++;
-                if (booking.payout_status === 'Unpaid' && booking.dispute_status !== 'Pending') {
-                    unpaidAmount += seniorEarning; 
-                }
-                if (booking.payout_status === 'Paid') {
-                    totalPaidAmount += seniorEarning; 
+
+                // 💸 गणना में केवल PAID (Non-Promotional) बुकिंग्स को शामिल करें
+                if (!isPromo) {
+                    const seniorEarning = booking.amount_paid - platformFee;
+                    
+                    if (booking.payout_status === 'Unpaid' && booking.dispute_status !== 'Pending') {
+                        unpaidAmount += seniorEarning; 
+                    }
+                    if (booking.payout_status === 'Paid') {
+                        totalPaidAmount += seniorEarning; 
+                    }
                 }
             } 
             else if (booking.status === 'Confirmed') {
