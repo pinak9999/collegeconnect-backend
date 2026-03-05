@@ -3,17 +3,15 @@ const Schema = mongoose.Schema;
 
 const BookingSchema = new Schema({
     // 👤 Core Users
-    // Student jisne book kiya hai
     student: { 
         type: Schema.Types.ObjectId, 
-        ref: 'user', // Must match mongoose.model('user')
+        ref: 'user', 
         required: true,
         index: true 
     },
-    // Senior jiske saath booking hui hai
     senior: { 
         type: Schema.Types.ObjectId, 
-        ref: 'user', // Must match mongoose.model('user')
+        ref: 'user', 
         required: true,
         index: true 
     },
@@ -21,7 +19,7 @@ const BookingSchema = new Schema({
     // Senior profile reference
     profile: { 
         type: Schema.Types.ObjectId, 
-        ref: 'profile' // Must match mongoose.model('profile')
+        ref: 'profile' 
     },
 
     // ⏰ Meeting Time
@@ -35,13 +33,26 @@ const BookingSchema = new Schema({
         type: Number, 
         required: true 
     },
+    // 🔥 UPDATE: Isse required: false kar diya hai, kyunki FREE booking me ye nahi hoga
     razorpay_payment_id: { 
         type: String, 
-        required: true,
-        unique: true 
+        required: false, 
+        unique: true,
+        sparse: true // Taaki null values unique error na dein
     },
     razorpay_order_id: { 
         type: String 
+    },
+
+    // 🚀 NEW: Coupon Track karne ke liye
+    couponUsed: { 
+        type: String, 
+        default: null 
+    },
+    paymentMethod: {
+        type: String,
+        enum: ['Razorpay', 'Coupon_Free'],
+        default: 'Razorpay'
     },
 
     // 🚀 Booking Status
@@ -58,10 +69,9 @@ const BookingSchema = new Schema({
     },
 
     // ⭐ Rating System
-    // ⭐ Rating System
     rating: { 
         type: Number, 
-        min: 0,  // 🔥 Isko 1 se hatakar 0 kar diya
+        min: 0,
         max: 5,
         default: 0 
     },
@@ -84,7 +94,7 @@ const BookingSchema = new Schema({
     },
     dispute_reason: {
         type: Schema.Types.ObjectId,
-        ref: 'disputereason' // Must match mongoose.model('disputereason')
+        ref: 'disputereason' 
     },
     dispute_comment: {
         type: String
