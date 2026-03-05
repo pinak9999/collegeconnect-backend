@@ -64,7 +64,7 @@ router.post('/apply-coupon', auth, async (req, res) => {
 });
 
 // ---------------------------------------------------
-// 🚀 NEW 2: Create Free Booking (With isPromotional Flag & Dynamic Check)
+// 🚀 NEW 2: Create Free Booking (With Duplicate Key Fix)
 // ---------------------------------------------------
 router.post('/create-free-booking', auth, async (req, res) => {
     try {
@@ -86,6 +86,9 @@ router.post('/create-free-booking', auth, async (req, res) => {
             return res.status(400).json({ msg: "Limit reached" });
         }
 
+        // 🔥 FIX: Generate a unique ID to avoid MongoDB Duplicate Key Error (razorpay_payment_id: null)
+        const uniqueFreeId = `FREE-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
         const newBooking = new Booking({
             student: req.user.id,
             senior: seniorId,
@@ -96,7 +99,8 @@ router.post('/create-free-booking', auth, async (req, res) => {
             payout_status: 'Unpaid',
             paymentMethod: 'Coupon_Free',
             couponUsed: "FREE15",
-            isPromotional: true, // 🚀 Yahan se database ko pata chalega ki ye free session hai
+            razorpay_payment_id: uniqueFreeId, // ✅ unique value assigned
+            isPromotional: true, 
             date: new Date()
         });
 
@@ -105,7 +109,8 @@ router.post('/create-free-booking', auth, async (req, res) => {
 
     } catch (err) {
         console.error("Free Booking Error:", err.message);
-        res.status(500).json({ msg: 'Server Error: ' + err.message });
+        // डिटेल एरर भेजें ताकि पता चले क्या दिक्कत है
+        res.status(500).json({ msg: 'Server Error: ' + err.message }); 
     }
 });
 

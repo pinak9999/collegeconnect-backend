@@ -37,9 +37,12 @@ const BookingSchema = new Schema({
     },
     razorpay_payment_id: { 
         type: String, 
-        required: false, // 🔥 UPDATE: Free booking ke liye ise false kiya gaya hai
+        // 🔥 FIX: Required false kiya hai free bookings ke liye
+        required: false, 
+        // 🔥 FIX: unique aur sparse dono rakhe hain taaki duplicate null error na aaye
         unique: true,
-        sparse: true     // 🔥 UPDATE: Null values ko unique hone par error aane se rokne ke liye
+        sparse: true,
+        default: undefined // NULL ki jagah undefined rakhne se sparse index behtar kaam karta hai
     },
     razorpay_order_id: { 
         type: String 
