@@ -67,6 +67,8 @@ app.use('/api/colleges', require('./routes/colleges'));
 app.use('/api/disputereasons', require('./routes/disputereasons'));
 app.use('/api/chat', require('./routes/chat')); 
 app.use('/api/ai/matchmaker', require('./routes/aiMatchmaker'));
+// अपने server.js में ये लाइन जोड़ें:
+app.use('/api/predictor', require('./routes/predictor'));
 // 8. Root route
 app.get('/', (req, res) => {
   res.send('🚀 CollegeConnect Backend is Live! (Full Version)');
