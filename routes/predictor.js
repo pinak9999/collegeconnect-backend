@@ -5,47 +5,66 @@ const Cutoff = require('../models/Cutoff');
 
 router.post('/predict', async (req, res) => {
   try {
-    const { score, category, mode } = req.body;
-    const userScore = parseFloat(score);
+    const { score, category, mode, domicile, gender } = req.body;
+    let userScore = parseFloat(score);
 
     if (!userScore || !category || !mode) {
-      return res.status(400).json({ msg: "Please provide score, category, and mode" });
+      return res.status(400).json({ msg: "Incomplete data provided" });
     }
 
-    // 🚀 स्मार्ट एल्गोरिदम: हम डेटाबेस से वो कॉलेज निकालेंगे जिनकी कटऑफ 
-    // यूज़र के स्कोर से अधिकतम 2% ज्यादा हो (ताकि काउंसलिंग के 2nd/3rd राउंड में मिलने वाले कॉलेज भी दिखें)
+    // ==========================================
+    // 🧠 REAP REAL ALGORITHM (RULES APPLIED)
+    // ==========================================
+    let effectiveCategory = category;
+    
+    // Rule 1: Outside Rajasthan gets General Category (No Reservation)
+    if (domicile === "Outside Rajasthan") {
+      effectiveCategory = "GEN";
+      userScore -= 1.0; // Competition for 15% seats is higher, so effectively their score holds slightly less weight
+    }
+
+    // Rule 2: Female Quota (Horizontal 25% Reservation)
+    // Girls get colleges at slightly lower cutoffs, so we mathematically boost their score for prediction
+    if (gender === "Female" && domicile === "Rajasthan") {
+      userScore += 1.5; 
+    }
+
+    // If EWS or MBC is selected but not in DB yet, map to closest equivalent for prediction
+    // (You can add real EWS data in DB later, for now we map EWS->GEN with lower cutoff, MBC->OBC)
+    let searchCategory = effectiveCategory;
+    if (effectiveCategory === "EWS") {
+       searchCategory = "GEN";
+       userScore += 1.0; // EWS cutoff is lower than GEN
+    }
+    if (effectiveCategory === "MBC") {
+       searchCategory = "OBC"; 
+       userScore += 0.5; // MBC is close to OBC
+    }
+
+    // Find colleges where closing score is reachable (max +2% tolerance)
     const maxCutoffAllowed = userScore + 2.0;
 
     const cutoffs = await Cutoff.find({
-      category: category,
+      category: searchCategory,
       mode: mode,
       closingScore: { $lte: maxCutoffAllowed }
-    }).sort({ closingScore: -1 }); // सबसे हाई कटऑफ वाले (बेस्ट कॉलेज) सबसे ऊपर दिखेंगे
+    }).sort({ closingScore: -1 });
 
-    // 🎯 High / Medium Chance कैलकुलेट करना
     const predictions = cutoffs.map(item => {
       let chance = "Low";
       const diff = userScore - item.closingScore;
 
-      if (diff >= 0) {
-        chance = "High"; // स्कोर कटऑफ से ज्यादा या बराबर है (पक्का मिलेगा)
-      } else if (diff >= -1.5) {
-        chance = "Medium"; // स्कोर थोड़ा सा कम है (Spot round में मिल सकता है)
-      } else {
-        chance = "Low"; // बहुत मुश्किल है
-      }
+      if (diff >= 0) chance = "High"; 
+      else if (diff >= -1.5) chance = "Medium"; 
 
       return {
         name: item.collegeName,
         branch: item.branch,
-        chance: chance,
-        cutoff: item.closingScore // चाहो तो आप फ्रंटएंड पर दिखा सकते हो कि पिछले साल कटऑफ क्या थी
+        chance: chance
       };
     });
 
-    // सिर्फ़ High और Medium चांस वाले कॉलेज ही फ़िल्टर करें
     const realisticPredictions = predictions.filter(p => p.chance !== "Low");
-
     res.json(realisticPredictions);
 
   } catch (err) {
