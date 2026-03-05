@@ -137,5 +137,23 @@ router.put('/mark-complete/:bookingId', auth, async (req, res) => {
         res.status(500).send('Server Error'); 
     }
 });
+// 📊 ADMIN: कूपन यूसेज ट्रैक करने के लिए
+router.get('/admin/coupon-stats', isAdmin, async (req, res) => {
+    try {
+        const count = await Booking.countDocuments({ couponUsed: "FREE15" });
+        const recentUsers = await Booking.find({ couponUsed: "FREE15" })
+            .populate('student', 'name email')
+            .sort({ createdAt: -1 })
+            .limit(5);
 
+        res.json({
+            totalUsed: count,
+            limit: 15,
+            remaining: 15 - count,
+            recentUsers: recentUsers
+        });
+    } catch (err) {
+        res.status(500).send('Server Error');
+    }
+});
 module.exports = router;
