@@ -5,7 +5,7 @@ const isAdmin = require('../middleware/isAdmin');
 const Booking = require('../models/Booking');
 
 // ---------------------------------------------------
-// 🎟️ 1. Apply Coupon & Check Limit (NEW)
+// 🎟️ 1. Apply Coupon & Check Limit
 // ---------------------------------------------------
 router.post('/apply-coupon', auth, async (req, res) => {
     try {
@@ -15,7 +15,6 @@ router.post('/apply-coupon', auth, async (req, res) => {
             return res.status(400).json({ msg: "Invalid Coupon Code ❌" });
         }
 
-        // चेक करें कि यह कोड कितनी बार इस्तेमाल हो चुका है
         const usageCount = await Booking.countDocuments({ couponUsed: "FREE15" });
 
         if (usageCount >= 15) {
@@ -33,25 +32,27 @@ router.post('/apply-coupon', auth, async (req, res) => {
 });
 
 // ---------------------------------------------------
-// 🚀 2. Create Free Booking (NEW)
+// 🚀 2. Create Free Booking (FIXED: amount_paid & slot_time)
 // ---------------------------------------------------
 router.post('/create-free-booking', auth, async (req, res) => {
     try {
         const { seniorId, profileId, couponCode } = req.body;
 
-        // Security Check: दोबारा चेक करें कि लिमिट तो नहीं खत्म हुई
         if (couponCode !== "FREE15") return res.status(400).json({ msg: "Invalid coupon" });
         
         const usageCount = await Booking.countDocuments({ couponUsed: "FREE15" });
         if (usageCount >= 15) return res.status(400).json({ msg: "Limit reached" });
 
+        // ✅ FIXED: Using amount_paid instead of amount
+        // ✅ FIXED: Adding slot_time as it's required in your model
         const newBooking = new Booking({
             student: req.user.id,
             senior: seniorId,
             profile: profileId,
-            amount: 0,
-            status: 'Confirmed', // फ्री बुकिंग सीधे कन्फर्म होगी
-            paymentStatus: 'Paid',
+            amount_paid: 0, 
+            slot_time: new Date(), 
+            status: 'Confirmed', 
+            payout_status: 'Unpaid',
             paymentMethod: 'Coupon_Free',
             couponUsed: "FREE15",
             date: new Date()
@@ -61,13 +62,13 @@ router.post('/create-free-booking', auth, async (req, res) => {
         res.json({ success: true, booking: savedBooking });
 
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
+        console.error("Free Booking Error:", err.message);
+        res.status(500).json({ msg: 'Server Error: ' + err.message });
     }
 });
 
 // ---------------------------------------------------
-// 3. GET Student Bookings
+// 3. GET Student Bookings (Preserved Logic)
 // ---------------------------------------------------
 router.get('/student/my', auth, async (req, res) => {
     try {
@@ -91,7 +92,7 @@ router.get('/student/my', auth, async (req, res) => {
 });
 
 // ---------------------------------------------------
-// 4. GET Senior Bookings
+// 4. GET Senior Bookings (Preserved Logic)
 // ---------------------------------------------------
 router.get('/senior/my', auth, async (req, res) => {
     try {
@@ -108,7 +109,7 @@ router.get('/senior/my', auth, async (req, res) => {
 });
 
 // ---------------------------------------------------
-// 5. MARK COMPLETE (With Safety Fix)
+// 5. MARK COMPLETE (Preserved Safety Fix)
 // ---------------------------------------------------
 router.put('/mark-complete/:bookingId', auth, async (req, res) => {
     try {
