@@ -36,15 +36,20 @@ router.post('/admin/:userId', isAdmin,
     ]), 
     async (req, res) => {
     
-    const { college, branch, year, bio, price_per_session, session_duration_minutes, tags } = req.body;
+    // 🚀 NEW: req.body में display_name को भी शामिल किया गया है
+    const { college, branch, year, bio, price_per_session, session_duration_minutes, tags, display_name } = req.body;
     
-    // 🚀 UPDATE: College ID होना ज़रूरी है ताकि पता चले किस कॉलेज का प्रोफाइल बन/अपडेट हो रहा है
+    // 🚀 UPDATE: College ID होना ज़रूरी है ताकि पता चले किस कॉलेज का प्रोफाइल बन/अपडेट हो रहा है
     if (!college) {
         return res.status(400).json({ msg: 'College is required to create or update a profile.' });
     }
 
     try {
         const profileFields = { user: req.params.userId, college: college };
+        
+        // 🚀 NEW: अगर display_name भेजा गया है, तो उसे सेव करें (खाली छोड़ने पर हट जाएगा)
+        if (display_name !== undefined) profileFields.display_name = display_name;
+        
         if (branch) profileFields.branch = branch;
         if (year) profileFields.year = year;
         if (bio) profileFields.bio = bio;

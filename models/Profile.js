@@ -4,6 +4,10 @@ const Schema = mongoose.Schema;
 const ProfileSchema = new Schema({
     user: { type: Schema.Types.ObjectId, ref: 'user' },
     college: { type: Schema.Types.ObjectId, ref: 'college' }, 
+    
+    // 🚀 NEW: यह वो नाम है जो स्टूडेंट को दिखेगा (Alias / Fake Name)
+    display_name: { type: String }, 
+
     branch: { type: String, default: 'Not Set' },
     year: { type: String, default: 'Not Set' },
     bio: { type: String, default: 'Please ask Admin to update this profile.' },
