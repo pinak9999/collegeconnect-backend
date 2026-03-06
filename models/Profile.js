@@ -27,4 +27,8 @@ const ProfileSchema = new Schema({
     availability: [ { day: String, startTime: String, endTime: String } ],
     date: { type: Date, default: Date.now }
 });
+
+// 🚀 NEW LOGIC: एक सीनियर के कई कॉलेज हो सकते हैं, लेकिन एक ही कॉलेज के 2 प्रोफाइल नहीं हो सकते।
+ProfileSchema.index({ user: 1, college: 1 }, { unique: true });
+
 module.exports = Profile = mongoose.model('profile', ProfileSchema);

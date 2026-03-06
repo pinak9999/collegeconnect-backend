@@ -3,9 +3,9 @@ const router = express.Router();
 const isAdmin = require('../middleware/isAdmin');
 const auth = require('../middleware/auth');
 const College = require('../models/College');
-const Profile = require('../models/Profile'); // 1. ('Profile' (प्रोफाइल) 'मॉडल' (model) (model) 'इम्पोर्ट' (import) (आयात) करें)
+const Profile = require('../models/Profile'); 
 
-// (GET /api/colleges (वही है))
+// (GET /api/colleges)
 router.get('/', auth, async (req, res) => {
     try {
         const colleges = await College.find().sort({ name: 1 });
@@ -13,7 +13,7 @@ router.get('/', auth, async (req, res) => {
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
-// (POST /api/colleges (वही है))
+// (POST /api/colleges)
 router.post('/', isAdmin, async (req, res) => {
     const { name } = req.body;
     try {
@@ -27,25 +27,21 @@ router.post('/', isAdmin, async (req, res) => {
 
 /**
  * @route   DELETE /api/colleges/:id
- * @desc    Delete a college (Admin Only) (FIXED)
+ * @desc    Delete a college (Admin Only)
  * @access  Private (isAdmin)
  */
 router.delete('/:id', isAdmin, async (req, res) => {
     try {
         const collegeId = req.params.id;
 
-        // 1. 'College' (कॉलेज) (कॉलेज) 'को' (to) 'डिलीट' (delete) (हटाएँ) 'करें' (Do)
+        // 1. College को डिलीट करें
         await College.findByIdAndDelete(collegeId);
         
-        // 2. --- (यह रहा 'नया' (New) 'फिक्स' (Fix) (ठीक)) ---
-        // ('सभी' (All) 'Profiles' (प्रोफाइल्स) (Profiles (प्रोफाइल)) 'में' (in) 'जाओ' (Go) 'और' (and) '`college`' (कॉलेज) (college) 'फील्ड' (field) (फ़ील्ड) 'को' (to) '`null`' (नल) (null (खाली)) 'सेट' (set) (सेट) 'कर' (do) 'दो' (it))
-        await Profile.updateMany(
-            { college: collegeId }, // ('सिर्फ' (Only) 'उन्हें' (them) 'ढूँढो' (find) 'जो' (which) 'इस्तेमाल' (use) 'कर' (doing) 'रहे' (are) 'हैं' (हैं))
-            { $set: { college: null } } // ('उसे' (It) 'खाली' (blank) (ख़ाली) 'सेट' (set) (सेट) 'कर' (do) 'दो' (it))
-        );
-        // --- (अपडेट (Update) खत्म) ---
+        // 2. 🚀 NEW FIX: चूँकि अब हर कॉलेज का एक अलग प्रोफाइल डॉक्युमेंट है, 
+        // इसलिए अगर कॉलेज डिलीट होता है, तो उस कॉलेज के प्रोफाइल डॉक्युमेंट्स को भी हटा दें।
+        await Profile.deleteMany({ college: collegeId });
 
-        res.json({ msg: 'College removed from database and all profiles.' });
+        res.json({ msg: 'College removed from database and all related profiles deleted.' });
     } catch (err) { console.error(err.message); res.status(500).send('Server Error'); }
 });
 
