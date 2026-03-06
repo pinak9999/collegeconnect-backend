@@ -27,7 +27,7 @@ router.get('/admin/coupon-stats', isAdmin, async (req, res) => {
 });
 
 // ---------------------------------------------------
-// 🎟️ NEW 1: Apply Coupon & Check Dynamic Limit
+// 🎟️ NEW 1: Apply Coupon & Check Dynamic Limit & User Abuse
 // ---------------------------------------------------
 router.post('/apply-coupon', auth, async (req, res) => {
     try {
@@ -37,18 +37,23 @@ router.post('/apply-coupon', auth, async (req, res) => {
             return res.status(400).json({ msg: "Invalid Coupon Code ❌" });
         }
 
-        // 🚀 Dynamic Settings Fetch
+        // 🚀 1. Check if User Already Used It (Coupon Abuse Prevention)
+        const hasUsedBefore = await Booking.findOne({ student: req.user.id, couponUsed: "FREE15" });
+        if (hasUsedBefore) {
+            return res.status(400).json({ msg: "⚠️ आप यह कूपन पहले ही इस्तेमाल कर चुके हैं! (One time use only)" });
+        }
+
+        // 🚀 2. Dynamic Settings Fetch
         let settings = await SiteSettings.findOne();
         if (!settings) settings = new SiteSettings();
 
-        // Check if coupon is active
+        // 3. Check if coupon is active
         if (!settings.isCouponActive) {
             return res.status(400).json({ msg: "This coupon is currently inactive or paused by Admin. ⚠️" });
         }
 
+        // 4. Check against dynamic limit (e.g., Only 15 total users)
         const usageCount = await Booking.countDocuments({ couponUsed: "FREE15" });
-
-        // Check against dynamic limit
         if (usageCount >= settings.couponLimit) {
             return res.status(400).json({ msg: `Offer Expired! Limit of ${settings.couponLimit} users already claimed. ⚠️` });
         }
@@ -64,7 +69,7 @@ router.post('/apply-coupon', auth, async (req, res) => {
 });
 
 // ---------------------------------------------------
-// 🚀 NEW 2: Create Free Booking (With Duplicate Key Fix)
+// 🚀 NEW 2: Create Free Booking (With Duplicate Key Fix & Abuse Prevention)
 // ---------------------------------------------------
 router.post('/create-free-booking', auth, async (req, res) => {
     try {
@@ -72,7 +77,13 @@ router.post('/create-free-booking', auth, async (req, res) => {
 
         if (couponCode !== "FREE15") return res.status(400).json({ msg: "Invalid coupon" });
         
-        // 🚀 Dynamic Settings Fetch
+        // 🚀 1. Security Check: Make sure they didn't bypass the apply-coupon route
+        const hasUsedBefore = await Booking.findOne({ student: req.user.id, couponUsed: "FREE15" });
+        if (hasUsedBefore) {
+            return res.status(400).json({ msg: "⚠️ You have already claimed your free session!" });
+        }
+
+        // 🚀 2. Dynamic Settings Fetch
         let settings = await SiteSettings.findOne();
         if (!settings) settings = new SiteSettings();
 
@@ -81,7 +92,6 @@ router.post('/create-free-booking', auth, async (req, res) => {
         }
 
         const usageCount = await Booking.countDocuments({ couponUsed: "FREE15" });
-        
         if (usageCount >= settings.couponLimit) {
             return res.status(400).json({ msg: "Limit reached" });
         }
@@ -109,7 +119,6 @@ router.post('/create-free-booking', auth, async (req, res) => {
 
     } catch (err) {
         console.error("Free Booking Error:", err.message);
-        // डिटेल एरर भेजें ताकि पता चले क्या दिक्कत है
         res.status(500).json({ msg: 'Server Error: ' + err.message }); 
     }
 });
