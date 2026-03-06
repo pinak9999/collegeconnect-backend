@@ -211,5 +211,38 @@ router.get('/public/top-rated', async (req, res) => {
         res.status(500).send('Server Error'); 
     }
 });
+// ... (बाकी कोड के नीचे, module.exports से पहले)
+
+// =========================================================
+// 🚀 DELETE ROUTE (Admin: Delete a specific profile by ID)
+// =========================================================
+router.delete('/:profileId', auth, isAdmin, async (req, res) => {
+    try {
+        const profile = await Profile.findById(req.params.profileId);
+
+        if (!profile) {
+            return res.status(404).json({ msg: 'Profile not found' });
+        }
+
+        // Optional: Cloudinary से भी इमेज डिलीट करें ताकि कचरा न जमा हो
+        if (profile.cloudinary_id) {
+            await cloudinary.uploader.destroy(profile.cloudinary_id);
+        }
+        if (profile.id_card_cloudinary_id) {
+            await cloudinary.uploader.destroy(profile.id_card_cloudinary_id);
+        }
+
+        // प्रोफाइल को डेटाबेस से हटाएँ
+        await Profile.findByIdAndDelete(req.params.profileId);
+
+        res.json({ msg: 'Profile deleted successfully', profileId: req.params.profileId });
+    } catch (err) {
+        console.error(err.message);
+        if (err.kind === 'ObjectId') {
+            return res.status(404).json({ msg: 'Profile not found' });
+        }
+        res.status(500).send('Server Error');
+    }
+});
 
 module.exports = router;
