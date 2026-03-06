@@ -33,14 +33,18 @@ router.post('/submit/:bookingId', auth, async (req, res) => {
         booking.review_text = review_text;
         await booking.save();
 
-        // 3. 'Senior' (सीनियर) की 'Average Rating' (औसत रेटिंग) (औसत रेटिंग) को 'री-कैलकुलेट' (re-calculate) (पुनर्गणना) करें
-        const profile = await Profile.findOne({ user: booking.senior });
-        if (profile) {
-            const newTotalRatings = profile.total_ratings + 1;
-            // ( (पुरानी 'एवरेज' (average) * पुराने 'टोटल' (total)) + 'नई' (new) 'रेटिंग' (rating) ) / 'नया' (new) 'टोटल' (total)
-            profile.average_rating = ((profile.average_rating * profile.total_ratings) + rating) / newTotalRatings;
-            profile.total_ratings = newTotalRatings;
-            await profile.save();
+        // 3. 🚀 UPDATE: 'Senior' (सीनियर) के "सभी" प्रोफाइल्स की रेटिंग एक साथ अपडेट करें
+        const profiles = await Profile.find({ user: booking.senior });
+        
+        if (profiles && profiles.length > 0) {
+            // लूप चलाकर हर प्रोफाइल (MBM, RTU आदि) की रेटिंग बढ़ाएं
+            for (let profile of profiles) {
+                const newTotalRatings = profile.total_ratings + 1;
+                // ( (पुरानी 'एवरेज' * पुराने 'टोटल') + 'नई' 'रेटिंग' ) / 'नया' 'टोटल'
+                profile.average_rating = ((profile.average_rating * profile.total_ratings) + rating) / newTotalRatings;
+                profile.total_ratings = newTotalRatings;
+                await profile.save();
+            }
         }
 
         res.json(booking);
