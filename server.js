@@ -53,6 +53,10 @@ mongoose.connect(MONGO_URI, {
   .catch((err) => console.error('❌ MongoDB Connection Error:', err.message));
 
 // --- 7. API Routes ---
+// 🚀 Public Ping Route for Cron-Job
+app.get('/ping', (req, res) => {
+    res.status(200).send('Server is awake and running! 🚀');
+});
 app.use('/api/auth', require('./routes/auth')); 
 app.use('/api/users', require('./routes/users')); 
 app.use('/api/profile', require('./routes/profile'));
