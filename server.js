@@ -54,8 +54,14 @@ mongoose.connect(MONGO_URI, {
 
 // --- 7. API Routes ---
 // 🚀 Public Ping Route for Cron-Job
+// 🚀 Anti-Sleep Ping Route
 app.get('/ping', (req, res) => {
-    res.status(200).send('Server is awake and running! 🚀');
+    // Render/Cloudflare को इसे सेव (cache) करने से रोकने का हैक
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.status(200).json({ 
+        msg: 'Server is forcefully awake! 🚀', 
+        time: new Date().toISOString() // हर बार टाइम बदलेगा, इसलिए Cache नहीं होगा
+    });
 });
 app.use('/api/auth', require('./routes/auth')); 
 app.use('/api/users', require('./routes/users')); 
