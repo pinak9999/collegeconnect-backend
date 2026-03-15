@@ -37,15 +37,22 @@ const BookingSchema = new Schema({
     },
     razorpay_payment_id: { 
         type: String, 
-        // 🔥 FIX: Required false kiya hai free bookings ke liye
         required: false, 
-        // 🔥 FIX: unique aur sparse dono rakhe hain taaki duplicate null error na aaye
         unique: true,
         sparse: true,
-        default: undefined // NULL ki jagah undefined rakhne se sparse index behtar kaam karta hai
+        default: undefined 
     },
     razorpay_order_id: { 
         type: String 
+    },
+
+    // 🚀 NEW: UPI UTR Details
+    utr_number: {
+        type: String,
+        required: false,
+        unique: true,
+        sparse: true,
+        default: undefined // NULL ki jagah undefined rakhne se sparse index behtar kaam karta hai
     },
 
     // 🚀 NEW: Promotional / Free Session Tracking
@@ -59,19 +66,22 @@ const BookingSchema = new Schema({
     },
     paymentMethod: {
         type: String,
-        enum: ['Razorpay', 'Coupon_Free'],
+        // 🔥 FIX: UPI add kiya hai enum mein
+        enum: ['Razorpay', 'Coupon_Free', 'UPI'],
         default: 'Razorpay'
     },
 
     // 🚀 Booking Status
     status: {
         type: String,
+        // 🔥 FIX: 'Pending Verification' add kiya hai UPI ke liye
         enum: [
+            'Pending Verification', // Naya status jab UTR submit hoga
             'Confirmed',           // Auto-approved meeting
             'Completed',           // Meeting khatam ho gayi
             'Cancelled (Refunded)', // Refund ke saath cancel
             'Missed',              // User ya Senior nahi aaya
-            'Rejected'             // Future use ke liye
+            'Rejected'             // Agar UTR galat ho
         ],
         default: 'Confirmed'
     },
@@ -79,7 +89,7 @@ const BookingSchema = new Schema({
     // ⭐ Rating System
     rating: { 
         type: Number, 
-        min: 0,  // 🔥 Isko 1 se hatakar 0 kar diya
+        min: 0,  
         max: 5,
         default: 0 
     },

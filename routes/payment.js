@@ -162,5 +162,52 @@ router.post('/verify', auth, async (req, res) => {
     });
 }
 });
+// ==========================================
+// 🚀 NEW: UPI UTR Submission Route (0% Fee)
+// ==========================================
 
+/**
+ * @route   POST /api/payment/upi-submit
+ * @desc    Save UPI Payment with UTR for Admin Verification
+ */
+router.post('/upi-submit', auth, async (req, res) => {
+    try {
+        const { seniorId, profileId, amount, utrNumber, slot_time } = req.body;
+
+        // 1. Validation (चेक करें कि UTR 12 नंबर का है या नहीं)
+        if (!utrNumber || utrNumber.length < 12) {
+            return res.status(400).json({ msg: "Valid 12-digit UTR is required" });
+        }
+
+        // 2. 💾 Database mein Save karein 
+        const newBooking = new Booking({
+            student: req.user.id,                    
+            senior: seniorId,          
+            profile: profileId,       
+            slot_time: slot_time || new Date(),
+            amount_paid: amount,      
+            utr_number: utrNumber,         // 🚀 UTR Number save कर लिया
+            status: 'Pending Verification' // ⏳ स्टेटस 'Pending' रखा ताकि एडमिन (आप) वेरीफाई कर सकें
+        });
+
+        const savedBooking = await newBooking.save();
+
+        console.log(`✅ SUCCESS: UTR ${utrNumber} submitted for Booking ID: ${savedBooking._id}`);
+
+        // 3. Frontend को Success मैसेज भेजें
+        res.status(200).json({ 
+            success: true, 
+            msg: "Booking successfully submitted! Awaiting verification.", 
+            booking: savedBooking 
+        });
+
+    } catch (err) {
+        console.error("❌ UPI Submission Error:", err.message);
+        res.status(500).json({ 
+            success: false, 
+            msg: "Internal Server Error", 
+            error: err.message 
+        });
+    }
+});
 module.exports = router;
