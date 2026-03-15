@@ -1,46 +1,59 @@
 const express = require('express');
 const router = express.Router();
-const Razorpay = require('razorpay');
-const crypto = require('crypto');
+const axios = require('axios'); // 🔥 Instamojo API call karne ke liye
 const auth = require('../middleware/auth');
 const Booking = require('../models/Booking');
-// WhatsApp वाली लाइन हटाकर ये लाइन लगाओ:
 const sendEmail = require('../config/email');
-// User model import karna zaroori hai email notification ke liye
 const User = require('../models/User'); 
 
-// --- 🛡️ Security Tip: Keys ko hamesha .env file mein rakhein ---
-const RAZORPAY_KEY_ID = 'rzp_test_RbhIpPvOLS2KkF'; 
-const RAZORPAY_KEY_SECRET = 'bWmPpwl6WLu4M8Ifdr0LZ2lP'; 
-
-const instance = new Razorpay({
-    key_id: RAZORPAY_KEY_ID,
-    key_secret: RAZORPAY_KEY_SECRET,
-});
+// --- 🛡️ Instamojo API Keys (अपने डैशबोर्ड से यहाँ डालें) ---
+const INSTAMOJO_API_KEY = 'YOUR_API_KEY_HERE'; 
+const INSTAMOJO_AUTH_TOKEN = 'YOUR_AUTH_TOKEN_HERE'; 
+const INSTAMOJO_URL = 'https://www.instamojo.com/api/1.1/'; // Live URL
 
 /**
  * @route   POST /api/payment/order
- * @desc    Razorpay Order Create karna
+ * @desc    Instamojo Payment Link Generate karna
  */
 router.post('/order', auth, async (req, res) => {
     try {
-        const { amount } = req.body;
+        const { amount, studentName, studentEmail, studentPhone } = req.body;
         
-        // 🔥 FIX: Check if amount exists, otherwise send error instead of defaulting to 500
         if (!amount || isNaN(amount)) {
             return res.status(400).json({ msg: "Invalid or missing amount" });
         }
         
-        const options = {
-            amount: Math.round(Number(amount) * 100), // Rupee to Paise conversion (Strict Number check)
-            currency: "INR",
-            receipt: `rcpt_${Date.now()}`,
-        };
+        // 1. Instamojo ko bhejne ke liye Data (Payload)
+        const payload = new URLSearchParams({
+            purpose: "Counseling Session - Reap CampusConnect",
+            amount: amount,
+            buyer_name: studentName || "Student",
+            email: studentEmail || "davepinak0@gmail.com", // default email
+            phone: studentPhone || "",
+            redirect_url: process.env.CLIENT_URL ? `${process.env.CLIENT_URL}/booking-success` : "http://localhost:3000/booking-success", // Payment ke baad yaha aayega
+            send_email: false,
+            send_sms: false,
+            allow_repeated_payments: false
+        });
 
-        const order = await instance.orders.create(options);
-        res.status(200).json(order);
+        // 2. Instamojo se Link maangna
+        const response = await axios.post(`${INSTAMOJO_URL}payment-requests/`, payload, {
+            headers: {
+                'X-Api-Key': INSTAMOJO_API_KEY,
+                'X-Auth-Token': INSTAMOJO_AUTH_TOKEN,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+
+        if (response.data && response.data.success) {
+            // Frontend ko payment link (longurl) bhej do
+            res.status(200).json({ payment_url: response.data.payment_request.longurl });
+        } else {
+            res.status(400).json({ msg: "Instamojo Link Failed", details: response.data });
+        }
+
     } catch (err) {
-        console.error("❌ Razorpay Order Error:", err);
+        console.error("❌ Instamojo Order Error:", err.response ? err.response.data : err.message);
         res.status(500).json({ msg: "Order Creation Failed", error: err.message });
     }
 });
@@ -51,56 +64,51 @@ router.post('/order', auth, async (req, res) => {
  */
 router.post('/verify', auth, async (req, res) => {
     try {
-        const { 
-            razorpay_order_id, 
-            razorpay_payment_id, 
-            razorpay_signature, 
-            bookingDetails 
-        } = req.body;
+        const { payment_id, payment_request_id, bookingDetails } = req.body;
 
-        // 1. 🛡️ Signature Verification (Razorpay Security)
-        const body = razorpay_order_id + "|" + razorpay_payment_id;
-        const expectedSignature = crypto
-            .createHmac("sha256", RAZORPAY_KEY_SECRET)
-            .update(body.toString())
-            .digest("hex");
+        // 1. 🛡️ Security Check (Instamojo se direct pucho ki payment hui ya fake hai)
+        const response = await axios.get(`${INSTAMOJO_URL}payments/${payment_id}/`, {
+            headers: {
+                'X-Api-Key': INSTAMOJO_API_KEY,
+                'X-Auth-Token': INSTAMOJO_AUTH_TOKEN
+            }
+        });
 
-        const isSignatureValid = expectedSignature === razorpay_signature;
+        const paymentData = response.data.payment;
 
-        if (!isSignatureValid) {
-            console.error("❌ Signature Mismatch!");
+        // Instamojo successful payment ko "Credit" bolta hai
+        if (paymentData.status !== 'Credit') {
+            console.error("❌ Payment Not Successful/Verified!");
             return res.status(400).json({ success: false, msg: "Payment verification failed" });
         }
 
-        console.log("✅ Signature Matched! Saving Booking...");
+        console.log("✅ Instamojo Payment Verified! Saving Booking...");
 
-    // 2. 💾 Database mein Save karein
+        // 2. 💾 Database mein Save karein 
+        // (Note: Database schema change na karna pade isliye Razorpay fields me hi Instamojo ID save kar rahe hai)
         const newBooking = new Booking({
             student: req.user.id,                    
             senior: bookingDetails.senior,          
             profile: bookingDetails.profileId,       
             slot_time: bookingDetails.slot_time || new Date(),
-            amount_paid: bookingDetails.amount,      
-            razorpay_payment_id: razorpay_payment_id,
-            razorpay_order_id: razorpay_order_id,    
+            amount_paid: paymentData.amount,      
+            razorpay_payment_id: payment_id, 
+            razorpay_order_id: payment_request_id,    
             status: 'Confirmed'                      
         });
 
         const savedBooking = await newBooking.save();
 
         // ==========================================
-        // 🚀 3. EMAIL Notification Logic (Super Fast & Stable)
+        // 🚀 3. EMAIL Notification Logic (आपका अपना कोड)
         // ==========================================
         try {
-            // सीनियर और स्टूडेंट का डेटा निकालें
             const seniorUser = await User.findById(bookingDetails.senior); 
             const studentUser = await User.findById(req.user.id);
 
-            // अगर सीनियर का ईमेल डेटाबेस में है, तभी मैसेज भेजें
             if (seniorUser && seniorUser.email) {
                 const subject = "🎉 New Booking Alert - CollegeConnect";
                 
-                // एकदम प्रोफेशनल दिखने वाला HTML ईमेल डिज़ाइन
                 const htmlContent = `
                     <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
                         <h2 style="color: #4CAF50;">Congratulations! 🎉</h2>
@@ -108,7 +116,7 @@ router.post('/verify', auth, async (req, res) => {
                         <p>You have received a new mentorship booking on CollegeConnect.</p>
                         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
                             <p><strong>🎓 Student Name:</strong> ${studentUser ? studentUser.name : 'A Student'}</p>
-                            <p><strong>💰 Amount Paid:</strong> ₹${bookingDetails.amount}</p>
+                            <p><strong>💰 Amount Paid:</strong> ₹${paymentData.amount}</p>
                             <p><strong>✅ Status:</strong> Confirmed</p>
                         </div>
                         <p>Please log in to your dashboard to check the details and connect with the student.</p>
@@ -118,14 +126,12 @@ router.post('/verify', auth, async (req, res) => {
                     </div>
                 `;
 
-                const textContent = `Hello ${seniorUser.name}, You have a new booking from ${studentUser ? studentUser.name : 'A Student'}. Amount Paid: ₹${bookingDetails.amount}. Status: Confirmed.`;
+                const textContent = `Hello ${seniorUser.name}, You have a new booking from ${studentUser ? studentUser.name : 'A Student'}. Amount Paid: ₹${paymentData.amount}. Status: Confirmed.`;
                 
-                // ईमेल भेजें
                 await sendEmail(seniorUser.email, subject, htmlContent, textContent);
                 console.log(`✅ SUCCESS: Booking Email sent to Senior (${seniorUser.email})`);
             }
         } catch (emailError) {
-            // अगर ईमेल फेल भी हो जाये, तो पेमेंट क्रैश नहीं होगा
             console.error("⚠️ Email Notification Failed, but booking saved:", emailError.message);
         }
         // ==========================================
@@ -137,8 +143,7 @@ router.post('/verify', auth, async (req, res) => {
         });
 
     } catch (err) {
-        // Validation ya Database connection error pakadne ke liye
-        console.error("❌ Database/Verification Error:", err.message);
+        console.error("❌ Database/Verification Error:", err.response ? err.response.data : err.message);
         res.status(500).json({ 
             success: false, 
             msg: "Internal Server Error", 
