@@ -7,9 +7,12 @@ const sendEmail = require('../config/email');
 const User = require('../models/User'); 
 
 // --- 🛡️ Instamojo API Keys (अपने डैशबोर्ड से यहाँ डालें) ---
+// --- payment.js के टॉप पर ये बदलें ---
 const INSTAMOJO_API_KEY = process.env.INSTAMOJO_API_KEY; 
 const INSTAMOJO_AUTH_TOKEN = process.env.INSTAMOJO_AUTH_TOKEN;
-const INSTAMOJO_URL = 'https://www.instamojo.com/api/1.1/'; // Live URL
+
+// 🔴 अभी के लिए इसे TEST URL कर दें (सिर्फ चेक करने के लिए)
+const INSTAMOJO_URL = 'https://test.instamojo.com/api/1.1/';
 
 /**
  * @route   POST /api/payment/order
