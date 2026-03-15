@@ -7,7 +7,6 @@ const sendEmail = require('../config/email');
 const User = require('../models/User'); 
 
 // --- 🛡️ Instamojo API Keys (अपने डैशबोर्ड से यहाँ डालें) ---
-// --- payment.js के टॉप पर ये बदलें ---
 const INSTAMOJO_API_KEY = process.env.INSTAMOJO_API_KEY; 
 const INSTAMOJO_AUTH_TOKEN = process.env.INSTAMOJO_AUTH_TOKEN;
 
@@ -27,31 +26,28 @@ router.post('/order', auth, async (req, res) => {
         }
         
         // 1. Instamojo ko bhejne ke liye Data (Payload)
-        // /order राउट के अंदर payload को ऐसे लिखें
-const payload = {
-    purpose: "Counseling Session - Reap CampusConnect",
-    amount: amount,
-    buyer_name: studentName || "Student",
-    email: studentEmail || "davepinak0@gmail.com",
-    redirect_url: "https://reapcampusconnect.in/booking-success",
-    send_email: false,
-    send_sms: false,
-    allow_repeated_payments: false
-};
+        const payload = {
+            purpose: "Counseling Session - Reap CampusConnect",
+            amount: amount,
+            buyer_name: studentName || "Student",
+            email: studentEmail || "davepinak0@gmail.com",
+            redirect_url: "https://reapcampusconnect.in/booking-success",
+            send_email: false,
+            send_sms: false,
+            allow_repeated_payments: false
+        };
 
-// और POST रिक्वेस्ट ऐसे भेजें
-const response = await axios({
-    method: 'post',
-    url: `${INSTAMOJO_URL}payment-requests/`,
-    data: new URLSearchParams(payload).toString(), // इसे String में बदलें
-    headers: {
-        'X-Api-Key': process.env.INSTAMOJO_API_KEY,
-        'X-Auth-Token': process.env.INSTAMOJO_AUTH_TOKEN,
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }
-});
-
-     
+        // और POST रिक्वेस्ट ऐसे भेजें
+        const response = await axios({
+            method: 'post',
+            url: `${INSTAMOJO_URL}payment-requests/`,
+            data: new URLSearchParams(payload).toString(), // इसे String में बदलें
+            headers: {
+                'X-Api-Key': process.env.INSTAMOJO_API_KEY,
+                'X-Auth-Token': process.env.INSTAMOJO_AUTH_TOKEN,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
 
         if (response.data && response.data.success) {
             // Frontend ko payment link (longurl) bhej do
@@ -68,7 +64,7 @@ const response = await axios({
 
 /**
  * @route   POST /api/payment/verify
- * @desc    Payment Verify karna aur Booking Save karna
+ * @desc    Payment Verify karna aur Booking Save karna (Instamojo)
  */
 router.post('/verify', auth, async (req, res) => {
     try {
@@ -93,7 +89,6 @@ router.post('/verify', auth, async (req, res) => {
         console.log("✅ Instamojo Payment Verified! Saving Booking...");
 
         // 2. 💾 Database mein Save karein 
-        // (Note: Database schema change na karna pade isliye Razorpay fields me hi Instamojo ID save kar rahe hai)
         const newBooking = new Booking({
             student: req.user.id,                    
             senior: bookingDetails.senior,          
@@ -108,7 +103,7 @@ router.post('/verify', auth, async (req, res) => {
         const savedBooking = await newBooking.save();
 
         // ==========================================
-        // 🚀 3. EMAIL Notification Logic (आपका अपना कोड)
+        // 🚀 3. EMAIL Notification Logic 
         // ==========================================
         try {
             const seniorUser = await User.findById(bookingDetails.senior); 
@@ -150,18 +145,17 @@ router.post('/verify', auth, async (req, res) => {
             booking: savedBooking 
         });
 
-} catch (err) {
-    // ये लाइन आपको रेंडर लॉग्स में असली सच बताएगी
-    console.log("FULL ERROR LOG:", err); 
-    
-    console.error("❌ Instamojo Order Error:", err.response ? err.response.data : err.message);
-    res.status(500).json({ 
-        msg: "Order Creation Failed", 
-        error: err.message,
-        details: err.response ? err.response.data : "Check Server Logs" 
-    });
-}
+    } catch (err) {
+        console.log("FULL ERROR LOG:", err); 
+        console.error("❌ Instamojo Order Error:", err.response ? err.response.data : err.message);
+        res.status(500).json({ 
+            msg: "Order Creation Failed", 
+            error: err.message,
+            details: err.response ? err.response.data : "Check Server Logs" 
+        });
+    }
 });
+
 // ==========================================
 // 🚀 NEW: UPI UTR Submission Route (0% Fee)
 // ==========================================
@@ -187,7 +181,8 @@ router.post('/upi-submit', auth, async (req, res) => {
             slot_time: slot_time || new Date(),
             amount_paid: amount,      
             utr_number: utrNumber,         // 🚀 UTR Number save कर लिया
-            status: 'Pending Verification' // ⏳ स्टेटस 'Pending' रखा ताकि एडमिन (आप) वेरीफाई कर सकें
+            paymentMethod: 'UPI',          // Method save kiya
+            status: 'Pending Verification' // ⏳ स्टेटस 'Pending' रखा ताकि एडमिन वेरीफाई कर सकें
         });
 
         const savedBooking = await newBooking.save();
@@ -210,4 +205,88 @@ router.post('/upi-submit', auth, async (req, res) => {
         });
     }
 });
+
+// ==========================================
+// 🚀 NEW: Admin Approve UPI Booking Route
+// ==========================================
+
+/**
+ * @route   PUT /api/payment/approve/:bookingId
+ * @desc    Admin UTR verify karke booking 'Confirmed' karega aur Email bhejega
+ */
+router.put('/approve/:bookingId', auth, async (req, res) => {
+    try {
+        // 1. Booking find karein
+        const bookingId = req.params.bookingId;
+        const booking = await Booking.findById(bookingId);
+
+        if (!booking) {
+            return res.status(404).json({ msg: "Booking not found!" });
+        }
+
+        // 2. Check karein ki status 'Pending Verification' hai ya nahi
+        if (booking.status !== 'Pending Verification') {
+            return res.status(400).json({ msg: "This booking is already processed." });
+        }
+
+        // 3. Status ko 'Confirmed' update karein
+        booking.status = 'Confirmed';
+        const updatedBooking = await booking.save();
+
+        console.log(`✅ Admin Approved Booking ID: ${bookingId}`);
+
+        // ==========================================
+        // 🚀 4. EMAIL Notification Logic (सीनियर को ईमेल भेजें)
+        // ==========================================
+        try {
+            const seniorUser = await User.findById(booking.senior); 
+            const studentUser = await User.findById(booking.student);
+
+            if (seniorUser && seniorUser.email) {
+                const subject = "🎉 New Booking Alert - Reap CampusConnect";
+                
+                const htmlContent = `
+                    <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+                        <h2 style="color: #4CAF50;">Congratulations! 🎉</h2>
+                        <p>Hello <strong>${seniorUser.name}</strong>,</p>
+                        <p>Your pending mentorship booking has been <strong>Verified and Confirmed</strong> by the Admin.</p>
+                        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                            <p><strong>🎓 Student Name:</strong> ${studentUser ? studentUser.name : 'A Student'}</p>
+                            <p><strong>💰 Amount Paid:</strong> ₹${booking.amount_paid}</p>
+                            <p><strong>🔢 UTR No:</strong> ${booking.utr_number}</p>
+                            <p><strong>✅ Status:</strong> Confirmed</p>
+                        </div>
+                        <p>Please log in to your dashboard to check the details and connect with the student.</p>
+                        <br/>
+                        <p>Best Regards,</p>
+                        <p><strong>Team Reap CampusConnect 🚀</strong></p>
+                    </div>
+                `;
+
+                const textContent = `Hello ${seniorUser.name}, Your booking with ${studentUser ? studentUser.name : 'A Student'} is now Confirmed.`;
+                
+                await sendEmail(seniorUser.email, subject, htmlContent, textContent);
+                console.log(`✅ SUCCESS: Approval Email sent to Senior (${seniorUser.email})`);
+            }
+        } catch (emailError) {
+            console.error("⚠️ Email Notification Failed, but booking is Confirmed:", emailError.message);
+        }
+        // ==========================================
+
+        res.status(200).json({ 
+            success: true, 
+            msg: "Booking Approved and Emails Sent! 🚀", 
+            booking: updatedBooking 
+        });
+
+    } catch (err) {
+        console.error("❌ Admin Approval Error:", err.message);
+        res.status(500).json({ 
+            success: false, 
+            msg: "Server Error during approval", 
+            error: err.message 
+        });
+    }
+});
+
 module.exports = router;
