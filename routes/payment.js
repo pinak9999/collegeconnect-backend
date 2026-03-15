@@ -7,8 +7,8 @@ const sendEmail = require('../config/email');
 const User = require('../models/User'); 
 
 // --- 🛡️ Instamojo API Keys (अपने डैशबोर्ड से यहाँ डालें) ---
-const INSTAMOJO_API_KEY = 'YOUR_API_KEY_HERE'; 
-const INSTAMOJO_AUTH_TOKEN = 'YOUR_AUTH_TOKEN_HERE'; 
+const INSTAMOJO_API_KEY = process.env.INSTAMOJO_API_KEY; 
+const INSTAMOJO_AUTH_TOKEN = process.env.INSTAMOJO_AUTH_TOKEN;
 const INSTAMOJO_URL = 'https://www.instamojo.com/api/1.1/'; // Live URL
 
 /**
