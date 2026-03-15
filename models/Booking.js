@@ -38,8 +38,8 @@ const BookingSchema = new Schema({
     razorpay_payment_id: { 
         type: String, 
         required: false, 
-        unique: true,
-        sparse: true,
+        
+      
         default: undefined 
     },
     razorpay_order_id: { 
@@ -50,8 +50,7 @@ const BookingSchema = new Schema({
     utr_number: {
         type: String,
         required: false,
-        unique: true,
-        sparse: true,
+        
         default: undefined // NULL ki jagah undefined rakhne se sparse index behtar kaam karta hai
     },
 
