@@ -142,14 +142,17 @@ router.post('/verify', auth, async (req, res) => {
             booking: savedBooking 
         });
 
-    } catch (err) {
-        console.error("❌ Database/Verification Error:", err.response ? err.response.data : err.message);
-        res.status(500).json({ 
-            success: false, 
-            msg: "Internal Server Error", 
-            error: err.message 
-        });
-    }
+} catch (err) {
+    // ये लाइन आपको रेंडर लॉग्स में असली सच बताएगी
+    console.log("FULL ERROR LOG:", err); 
+    
+    console.error("❌ Instamojo Order Error:", err.response ? err.response.data : err.message);
+    res.status(500).json({ 
+        msg: "Order Creation Failed", 
+        error: err.message,
+        details: err.response ? err.response.data : "Check Server Logs" 
+    });
+}
 });
 
 module.exports = router;
