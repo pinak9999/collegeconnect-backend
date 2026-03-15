@@ -3,27 +3,38 @@ const BrevoTransport = require('nodemailer-brevo-transport');
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 
+// 🚀 Brevo Transporter Setup
 const transporter = nodemailer.createTransport(new BrevoTransport({
-  apiKey: BREVO_API_KEY
+  apiKey: BREVO_API_KEY
 }));
 
-// (बदलाव: 'html' (एचटीएमएल) के साथ 'text' (टेक्स्ट) 'parameter' (पैरामीटर) 'add' (जोड़) करें)
+/**
+ * @function sendEmail
+ * @desc Premium Email Sender for Reap CampusConnect
+ */
 const sendEmail = async (to, subject, html, text) => {
-  try {
-    const mailOptions = {
-      from: `"College Connect" <davepinak0@gmail.com>`, // Brevo verified sender
-      to,
-      subject,
-      html: html, // (HTML (एचटीएमएल) 'version' (संस्करण))
-      text: text  // (Plain-text (सादा-पाठ) 'fallback' (फ़ॉलबैक))
-    };
+  try {
+    const mailOptions = {
+      // 🌟 Premium Branding: 'College Connect' की जगह अब नया नाम
+      from: `"Team Reap CampusConnect 🎓" <davepinak0@gmail.com>`, 
+      
+      // 💬 Professional Touch: अगर यूजर रिप्लाई करे तो यहाँ आए
+      replyTo: `"Support - Reap CampusConnect" <davepinak0@gmail.com>`, 
+      
+      to: to,
+      subject: subject,
+      html: html, // (HTML वर्ज़न शानदार डिज़ाइन के लिए)
+      text: text || "Please view this email in an HTML compatible mail client." // (स्मार्ट टेक्स्ट फ़ॉलबैक)
+    };
 
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Brevo Email sent successfully to ${to}`, info);
-  } catch (error) {
-    console.error('❌ Brevo Email Error:', error.message);
-    throw new Error('Email sending failed.');
-  }
+    const info = await transporter.sendMail(mailOptions);
+    
+    // 📊 Advance Logging
+    console.log(`✅ [Brevo] Premium Email successfully delivered to: ${to}`);
+  } catch (error) {
+    console.error('❌ [Brevo] Email Delivery Failed:', error.message);
+    throw new Error('Email sending failed.');
+  }
 };
 
 module.exports = sendEmail;
