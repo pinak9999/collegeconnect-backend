@@ -180,9 +180,12 @@ router.post('/upi-submit', auth, async (req, res) => {
             profile: profileId,       
             slot_time: slot_time || new Date(),
             amount_paid: amount,      
-            utr_number: utrNumber,         // 🚀 UTR Number save कर लिया
-            paymentMethod: 'UPI',          // Method save kiya
-            status: 'Pending Verification' // ⏳ स्टेटस 'Pending' रखा ताकि एडमिन वेरीफाई कर सकें
+            utr_number: utrNumber,         
+            paymentMethod: 'UPI',          
+            status: 'Pending Verification',
+            
+            // 🚀 THE MAGIC HACK: MongoDB का Duplicate Null Error ख़त्म करने के लिए 
+            razorpay_payment_id: `UPI_${Date.now()}_${Math.random().toString(36).substring(7)}`
         });
 
         const savedBooking = await newBooking.save();
