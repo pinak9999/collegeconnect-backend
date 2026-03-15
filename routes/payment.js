@@ -12,7 +12,7 @@ const INSTAMOJO_API_KEY = process.env.INSTAMOJO_API_KEY;
 const INSTAMOJO_AUTH_TOKEN = process.env.INSTAMOJO_AUTH_TOKEN;
 
 // 🔴 अभी के लिए इसे TEST URL कर दें (सिर्फ चेक करने के लिए)
-const INSTAMOJO_URL = 'https://test.instamojo.com/api/1.1/';
+const INSTAMOJO_URL = 'https://www.instamojo.com/api/1.1/';
 
 /**
  * @route   POST /api/payment/order
@@ -27,26 +27,31 @@ router.post('/order', auth, async (req, res) => {
         }
         
         // 1. Instamojo ko bhejne ke liye Data (Payload)
-        const payload = new URLSearchParams({
-            purpose: "Counseling Session - Reap CampusConnect",
-            amount: amount,
-            buyer_name: studentName || "Student",
-            email: studentEmail || "davepinak0@gmail.com", // default email
-            phone: studentPhone || "",
-            redirect_url: process.env.CLIENT_URL ? `${process.env.CLIENT_URL}/booking-success` : "http://localhost:3000/booking-success", // Payment ke baad yaha aayega
-            send_email: false,
-            send_sms: false,
-            allow_repeated_payments: false
-        });
+        // /order राउट के अंदर payload को ऐसे लिखें
+const payload = {
+    purpose: "Counseling Session - Reap CampusConnect",
+    amount: amount,
+    buyer_name: studentName || "Student",
+    email: studentEmail || "davepinak0@gmail.com",
+    redirect_url: "https://reapcampusconnect.in/booking-success",
+    send_email: false,
+    send_sms: false,
+    allow_repeated_payments: false
+};
 
-        // 2. Instamojo se Link maangna
-        const response = await axios.post(`${INSTAMOJO_URL}payment-requests/`, payload, {
-            headers: {
-                'X-Api-Key': INSTAMOJO_API_KEY,
-                'X-Auth-Token': INSTAMOJO_AUTH_TOKEN,
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
-        });
+// और POST रिक्वेस्ट ऐसे भेजें
+const response = await axios({
+    method: 'post',
+    url: `${INSTAMOJO_URL}payment-requests/`,
+    data: new URLSearchParams(payload).toString(), // इसे String में बदलें
+    headers: {
+        'X-Api-Key': process.env.INSTAMOJO_API_KEY,
+        'X-Auth-Token': process.env.INSTAMOJO_AUTH_TOKEN,
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+});
+
+     
 
         if (response.data && response.data.success) {
             // Frontend ko payment link (longurl) bhej do
