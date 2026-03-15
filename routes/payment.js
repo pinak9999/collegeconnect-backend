@@ -207,6 +207,29 @@ router.post('/upi-submit', auth, async (req, res) => {
 });
 
 // ==========================================
+// 🚀 NEW: Admin Pending Bookings Fetch Route
+// ==========================================
+
+/**
+ * @route   GET /api/payment/pending-bookings
+ * @desc    Admin ke liye saari pending UPI bookings fetch karna
+ */
+router.get('/pending-bookings', auth, async (req, res) => {
+    try {
+        // Sirf wahi booking laao jinka status 'Pending Verification' hai
+        const pendingBookings = await Booking.find({ status: 'Pending Verification' })
+            .populate('student', 'name email') // Student ka naam
+            .populate('senior', 'name email')  // Senior ka naam
+            .sort({ date: -1 }); // Sabse nayi sabse upar
+
+        res.status(200).json(pendingBookings);
+    } catch (err) {
+        console.error("❌ Fetch Pending Bookings Error:", err.message);
+        res.status(500).json({ msg: "Server Error" });
+    }
+});
+
+// ==========================================
 // 🚀 NEW: Admin Approve UPI Booking Route
 // ==========================================
 
