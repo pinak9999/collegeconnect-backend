@@ -14,8 +14,8 @@ const UserSchema = new Schema({
     // अब अगर नंबर नहीं होगा, तो ये फील्ड बनेगी ही नहीं, और sparse एकदम सही काम करेगा।
     mobileNumber: { 
         type: String, 
-        unique: true,
-        sparse: true 
+        // unique: true,
+        // sparse: true 
     },
 
     // --- (बदलाव 3) ---
