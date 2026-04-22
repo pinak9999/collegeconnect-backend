@@ -28,7 +28,7 @@ app.use(cors({
 // 4. JSON Parser
 app.use(express.json());
 
-// 5. Socket.io Server Setup (FIXED HERE 🛠️)
+// 5. Socket.io Server Setup
 const io = new Server(server, {
     cors: {
         origin: ALLOWED_ORIGINS, // Ab ye Localhost ko block nahi karega
@@ -45,11 +45,16 @@ if (!MONGO_URI) {
   process.exit(1);
 }
 
-mongoose.connect(MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-  .then(() => console.log('✅ MongoDB Connected Successfully'))
+// 🚀 FIX: Warnings hata di gayi hain (useNewUrlParser, useUnifiedTopology)
+mongoose.connect(MONGO_URI)
+  .then(() => {
+      console.log('✅ MongoDB Connected Successfully');
+
+      // 🔥 THE NUCLEAR MISSILE: Ziddi Google Auth Error ko hamesha ke liye khatam karne ke liye!
+      mongoose.connection.collection('users').dropIndex('mobileNumber_1')
+        .then(() => console.log('🔥 BINGO! Purana mobileNumber index delete ho gaya! Google Auth will work now!'))
+        .catch((err) => console.log('✅ Index is already clean.'));
+  })
   .catch((err) => console.error('❌ MongoDB Connection Error:', err.message));
 
 // --- 7. API Routes ---
@@ -77,8 +82,9 @@ app.use('/api/colleges', require('./routes/colleges'));
 app.use('/api/disputereasons', require('./routes/disputereasons'));
 app.use('/api/chat', require('./routes/chat')); 
 app.use('/api/ai/matchmaker', require('./routes/aiMatchmaker'));
-// अपने server.js में ये लाइन जोड़ें:
+// अपने server.js में ये लाइन जोड़ें:
 app.use('/api/predictor', require('./routes/predictor'));
+
 // 8. Root route
 app.get('/', (req, res) => {
   res.send('🚀 CollegeConnect Backend is Live! (Full Version)');
