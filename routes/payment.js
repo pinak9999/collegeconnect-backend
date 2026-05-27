@@ -312,4 +312,46 @@ router.put('/approve/:bookingId', auth, async (req, res) => {
     }
 });
 
+// ==========================================
+// 🚀 NEW: Admin Reject UPI Booking Route
+// ==========================================
+
+/**
+ * @route   PUT /api/payment/reject/:bookingId
+ * @desc    Admin Fake/Invalid Payment ko Reject karega
+ */
+router.put('/reject/:bookingId', auth, async (req, res) => {
+    try {
+        const booking = await Booking.findById(req.params.bookingId);
+
+        if (!booking) {
+            return res.status(404).json({ msg: "Booking not found!" });
+        }
+
+        if (booking.status !== 'Pending Verification') {
+            return res.status(400).json({ msg: "This booking is already processed." });
+        }
+
+        // Status को 'Rejected' कर दें
+        booking.status = 'Rejected';
+        const updatedBooking = await booking.save();
+
+        console.log(`❌ Admin Rejected Booking ID: ${req.params.bookingId}`);
+
+        res.status(200).json({ 
+            success: true, 
+            msg: "Fake Payment Rejected! ❌", 
+            booking: updatedBooking 
+        });
+
+    } catch (err) {
+        console.error("❌ Admin Rejection Error:", err.message);
+        res.status(500).json({ 
+            success: false, 
+            msg: "Server Error during rejection", 
+            error: err.message 
+        });
+    }
+});
+
 module.exports = router;
