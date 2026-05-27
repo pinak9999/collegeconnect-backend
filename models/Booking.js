@@ -38,20 +38,17 @@ const BookingSchema = new Schema({
     razorpay_payment_id: { 
         type: String, 
         required: false, 
-        
-      
         default: undefined 
     },
     razorpay_order_id: { 
         type: String 
     },
 
-    // 🚀 NEW: UPI UTR Details
-    utr_number: {
+    // 🚀 NEW: Payment Screenshot URL (Cloudinary)
+    payment_screenshot: {
         type: String,
         required: false,
-        
-        default: undefined // NULL ki jagah undefined rakhne se sparse index behtar kaam karta hai
+        default: undefined 
     },
 
     // 🚀 NEW: Promotional / Free Session Tracking
@@ -65,7 +62,6 @@ const BookingSchema = new Schema({
     },
     paymentMethod: {
         type: String,
-        // 🔥 FIX: UPI add kiya hai enum mein
         enum: ['Razorpay', 'Coupon_Free', 'UPI'],
         default: 'Razorpay'
     },
@@ -73,14 +69,13 @@ const BookingSchema = new Schema({
     // 🚀 Booking Status
     status: {
         type: String,
-        // 🔥 FIX: 'Pending Verification' add kiya hai UPI ke liye
         enum: [
-            'Pending Verification', // Naya status jab UTR submit hoga
+            'Pending Verification', // Naya status jab Screenshot submit hoga
             'Confirmed',           // Auto-approved meeting
             'Completed',           // Meeting khatam ho gayi
             'Cancelled (Refunded)', // Refund ke saath cancel
             'Missed',              // User ya Senior nahi aaya
-            'Rejected'             // Agar UTR galat ho
+            'Rejected'             // Agar Screenshot galat/fake ho
         ],
         default: 'Confirmed'
     },

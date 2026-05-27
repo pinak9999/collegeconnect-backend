@@ -37,7 +37,7 @@ router.post('/order', auth, async (req, res) => {
             allow_repeated_payments: false
         };
 
-        // और POST रिक्वेस्ट ऐसे भेजें
+        // POST रिक्वेस्ट ऐसे भेजें
         const response = await axios({
             method: 'post',
             url: `${INSTAMOJO_URL}payment-requests/`,
@@ -157,20 +157,20 @@ router.post('/verify', auth, async (req, res) => {
 });
 
 // ==========================================
-// 🚀 NEW: UPI UTR Submission Route (0% Fee)
+// 🚀 NEW: UPI Screenshot Submission Route 
 // ==========================================
 
 /**
  * @route   POST /api/payment/upi-submit
- * @desc    Save UPI Payment with UTR for Admin Verification
+ * @desc    Save UPI Payment with Screenshot for Admin Verification
  */
 router.post('/upi-submit', auth, async (req, res) => {
     try {
-        const { seniorId, profileId, amount, utrNumber, slot_time } = req.body;
+        const { seniorId, profileId, amount, paymentScreenshot, slot_time } = req.body;
 
-        // 1. Validation (चेक करें कि UTR 12 नंबर का है या नहीं)
-        if (!utrNumber || utrNumber.length < 12) {
-            return res.status(400).json({ msg: "Valid 12-digit UTR is required" });
+        // 1. Validation (Check if screenshot URL exists)
+        if (!paymentScreenshot) {
+            return res.status(400).json({ msg: "Payment screenshot URL is required" });
         }
 
         // 2. 💾 Database mein Save karein 
@@ -180,14 +180,14 @@ router.post('/upi-submit', auth, async (req, res) => {
             profile: profileId,       
             slot_time: slot_time || new Date(),
             amount_paid: amount,      
-            utr_number: utrNumber,         // 🚀 UTR Number save कर लिया
-            paymentMethod: 'UPI',          // Method save kiya
-            status: 'Pending Verification' // ⏳ स्टेटस 'Pending' रखा ताकि एडमिन वेरीफाई कर सकें
+            payment_screenshot: paymentScreenshot, // 📸 Cloudinary URL
+            paymentMethod: 'UPI',          
+            status: 'Pending Verification' // ⏳ Status for admin to verify
         });
 
         const savedBooking = await newBooking.save();
 
-        console.log(`✅ SUCCESS: UTR ${utrNumber} submitted for Booking ID: ${savedBooking._id}`);
+        console.log(`✅ SUCCESS: Screenshot submitted for Booking ID: ${savedBooking._id}`);
 
         // 3. Frontend को Success मैसेज भेजें
         res.status(200).json({ 
@@ -218,9 +218,9 @@ router.get('/pending-bookings', auth, async (req, res) => {
     try {
         // Sirf wahi booking laao jinka status 'Pending Verification' hai
         const pendingBookings = await Booking.find({ status: 'Pending Verification' })
-            .populate('student', 'name email') // Student ka naam
-            .populate('senior', 'name email')  // Senior ka naam
-            .sort({ date: -1 }); // Sabse nayi sabse upar
+            .populate('student', 'name email') 
+            .populate('senior', 'name email')  
+            .sort({ date: -1 }); 
 
         res.status(200).json(pendingBookings);
     } catch (err) {
@@ -235,7 +235,7 @@ router.get('/pending-bookings', auth, async (req, res) => {
 
 /**
  * @route   PUT /api/payment/approve/:bookingId
- * @desc    Admin UTR verify karke booking 'Confirmed' karega aur Email bhejega
+ * @desc    Admin Screenshot verify karke booking 'Confirmed' karega aur Email bhejega
  */
 router.put('/approve/:bookingId', auth, async (req, res) => {
     try {
@@ -259,7 +259,7 @@ router.put('/approve/:bookingId', auth, async (req, res) => {
         console.log(`✅ Admin Approved Booking ID: ${bookingId}`);
 
         // ==========================================
-        // 🚀 4. EMAIL Notification Logic (सीनियर को ईमेल भेजें)
+        // 🚀 4. EMAIL Notification Logic 
         // ==========================================
         try {
             const seniorUser = await User.findById(booking.senior); 
@@ -276,7 +276,7 @@ router.put('/approve/:bookingId', auth, async (req, res) => {
                         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 5px; margin: 15px 0;">
                             <p><strong>🎓 Student Name:</strong> ${studentUser ? studentUser.name : 'A Student'}</p>
                             <p><strong>💰 Amount Paid:</strong> ₹${booking.amount_paid}</p>
-                            <p><strong>🔢 UTR No:</strong> ${booking.utr_number}</p>
+                            <p><strong>🖼️ Payment Proof:</strong> Verified ✅</p>
                             <p><strong>✅ Status:</strong> Confirmed</p>
                         </div>
                         <p>Please log in to your dashboard to check the details and connect with the student.</p>
@@ -286,7 +286,7 @@ router.put('/approve/:bookingId', auth, async (req, res) => {
                     </div>
                 `;
 
-                const textContent = `Hello ${seniorUser.name}, Your booking with ${studentUser ? studentUser.name : 'A Student'} is now Confirmed.`;
+                const textContent = `Hello ${seniorUser.name}, Your booking with ${studentUser ? studentUser.name : 'A Student'} is now Confirmed (Payment Verified).`;
                 
                 await sendEmail(seniorUser.email, subject, htmlContent, textContent);
                 console.log(`✅ SUCCESS: Approval Email sent to Senior (${seniorUser.email})`);
